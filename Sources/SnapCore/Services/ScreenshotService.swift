@@ -15,7 +15,7 @@ import ScreenCaptureKit
 ///     Selects the primary display
 ///     Configures stream dimensions to match the display
 ///     Captures a single `CGImage` via `SCScreenshotManager`
-final class ScreenshotService: ScreenshotProviding {
+public final class ScreenshotService: ScreenshotProviding {
     
     /// Takes a screenshot of the main display using ScreenCaptureKit.
     ///
