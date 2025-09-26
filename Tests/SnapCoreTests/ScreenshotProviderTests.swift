@@ -6,6 +6,7 @@
 //
 
 import XCTest
+import AppKit
 @testable import SnapCore
 import CoreGraphics
 
@@ -39,7 +40,7 @@ final class ScreenshotProviderTests: XCTestCase {
     }
     
     func testTakeScreenshotOfScreenWithCropping() async throws {
-        let mockScreen = createMockScreen(frame: CGRect(x: 0, y: 0, width: 1920, height: 1080))
+        let mockScreen = try createMockScreen(frame: CGRect(x: 0, y: 0, width: 1920, height: 1080))
         let cropRect = CGRect(x: 10, y: 10, width: 200, height: 150)
         
         let image = await mockProvider.takeScreenshot(of: mockScreen, croppingTo: cropRect)
@@ -52,7 +53,7 @@ final class ScreenshotProviderTests: XCTestCase {
     // MARK: - Edge Cases
     
     func testZeroDimensionsCrop() async throws {
-        let mockScreen = createMockScreen(frame: CGRect(x: 0, y: 0, width: 1920, height: 1080))
+        let mockScreen = try createMockScreen(frame: CGRect(x: 0, y: 0, width: 1920, height: 1080))
         let zeroCrop = CGRect(x: 0, y: 0, width: 0, height: 0)
         
         let image = await mockProvider.takeScreenshot(of: mockScreen, croppingTo: zeroCrop)
@@ -68,7 +69,7 @@ final class ScreenshotProviderTests: XCTestCase {
     }
     
     func testNegativeDimensionsCrop() async throws {
-        let mockScreen = createMockScreen(frame: CGRect(x: 0, y: 0, width: 1920, height: 1080))
+        let mockScreen = try createMockScreen(frame: CGRect(x: 0, y: 0, width: 1920, height: 1080))
         let negativeCrop = CGRect(x: 0, y: 0, width: -100, height: -50)
         
         let image = await mockProvider.takeScreenshot(of: mockScreen, croppingTo: negativeCrop)
@@ -81,7 +82,7 @@ final class ScreenshotProviderTests: XCTestCase {
     }
     
     func testVeryLargeDimensions() async throws {
-        let mockScreen = createMockScreen(frame: CGRect(x: 0, y: 0, width: 1920, height: 1080))
+        let mockScreen = try createMockScreen(frame: CGRect(x: 0, y: 0, width: 1920, height: 1080))
         let largeCrop = CGRect(x: 0, y: 0, width: 10000, height: 10000)
         
         let image = await mockProvider.takeScreenshot(of: mockScreen, croppingTo: largeCrop)
@@ -155,10 +156,9 @@ final class ScreenshotProviderTests: XCTestCase {
     
     // MARK: - Helper Methods
     
-    private func createMockScreen(frame: CGRect) -> NSScreen {
-        // Note: This is a conceptual mock - NSScreen is harder to mock in practice
-        // You might need to create a protocol for screen operations instead
-        // For now, we'll assume your MockScreenshotProvider doesn't actually use the screen parameter
+    private func createMockScreen(frame: CGRect) throws -> NSScreen {
+        // In headless CI, NSScreen.main can be nil; skip these tests in that case.
+        try XCTSkipIf(NSScreen.main == nil, "Headless environment: skipping screen-dependent test")
         return NSScreen.main!
     }
     
@@ -190,4 +190,3 @@ final class ScreenshotProviderTests: XCTestCase {
         XCTAssertGreaterThanOrEqual(endTime - startTime, 0.1, "Should respect delay")
     }
 }
-

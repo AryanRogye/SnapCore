@@ -5,7 +5,7 @@
 //  Created by Aryan Rogye on 9/12/25.
 //
 
-import SwiftUI
+import AppKit
 @testable import SnapCore
 
 // MARK: - MockScreenshotProvider
