@@ -17,6 +17,10 @@ import ScreenCaptureKit
 ///     Captures a single `CGImage` via `SCScreenshotManager`
 public final class ScreenshotService: ScreenshotProviding {
     
+    public init() {
+        
+    }
+    
     /// Takes a screenshot of the main display using ScreenCaptureKit.
     ///
     /// Notes:
