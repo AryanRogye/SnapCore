@@ -21,6 +21,10 @@ public final class ScreenshotService: ScreenshotProviding {
         
     }
     
+    public func hasScreenshotPermission() -> Bool {
+        CGRequestScreenCaptureAccess()
+    }
+    
     /// Takes a screenshot of the main display using ScreenCaptureKit.
     ///
     /// Notes:

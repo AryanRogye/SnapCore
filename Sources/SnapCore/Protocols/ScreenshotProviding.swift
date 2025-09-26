@@ -14,6 +14,7 @@ import AppKit
 /// Screen Recording on macOS) and return a bitmap of the current
 /// display contents.
 public protocol ScreenshotProviding {
+    func hasScreenshotPermission() -> Bool
     /// Captures a screenshot and returns it as a `CGImage`.
     /// - Returns: A `CGImage` of the captured content.
     /// - Throws: An error if the capture fails or permission is denied.
