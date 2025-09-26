@@ -5,7 +5,7 @@
 //  Created by Aryan Rogye on 9/26/25.
 //
 
-enum ScreenshotScaleMode {
+public enum ScreenshotScaleMode {
     case nativePixels              // default
     case logicalPoints             // points * backingScaleFactor
     case percent(Double)           // 0.1 ... 1.0

@@ -13,7 +13,7 @@ import AppKit
 /// Conformers handle any platform-specific permissions (e.g.,
 /// Screen Recording on macOS) and return a bitmap of the current
 /// display contents.
-protocol ScreenshotProviding {
+public protocol ScreenshotProviding {
     /// Captures a screenshot and returns it as a `CGImage`.
     /// - Returns: A `CGImage` of the captured content.
     /// - Throws: An error if the capture fails or permission is denied.
