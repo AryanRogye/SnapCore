@@ -17,6 +17,10 @@ final class MockScreenshotProvider: ScreenshotProviding {
     var customHeight: Int?
     var delayInSeconds: TimeInterval = 0
     
+    func hasScreenshotPermission() -> Bool {
+        true
+    }
+    
     func takeScreenshot() async -> CGImage? {
         if delayInSeconds > 0 {
             try? await Task.sleep(nanoseconds: UInt64(delayInSeconds * 1_000_000_000))
