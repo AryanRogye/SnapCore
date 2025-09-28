@@ -43,7 +43,7 @@ Swift Package Manager (Git dependency):
 ```swift
 // In your Package.swift
 dependencies: [
-    .package(url: "https://github.com/your-org/SnapCore.git", from: "0.1.0")
+    .package(url: "https://github.com/AryanRogye/SnapCore.git", from: "0.1.0")
 ],
 targets: [
     .target(
