@@ -17,8 +17,8 @@ public final class ScreenRecordService: NSObject, ScreenRecordProviding {
     internal let videoQueue = DispatchQueue(label: "video", qos: .userInteractive)
     internal let audioQueue = DispatchQueue(label: "audio", qos: .userInteractive)
     
-    public var onScreenFrame: ((CMSampleBuffer) -> Void)?
-    public var onAudioFrame: ((CMSampleBuffer) -> Void)?
+    public var onScreenFrame: ScreenFrameHandler?
+    public var onAudioFrame: ScreenFrameHandler?
     
     public override init() {
         super.init()

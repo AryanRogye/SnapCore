@@ -13,6 +13,7 @@ extension ScreenRecordService: SCContentSharingPickerObserver {
         print("User cancelled")
     }
     
+    
     nonisolated public func contentSharingPicker(_ picker: SCContentSharingPicker, didUpdateWith filter: SCContentFilter, for stream: SCStream?) {
         Task { @MainActor in
             SCContentSharingPicker.shared.isActive = false
@@ -23,4 +24,7 @@ extension ScreenRecordService: SCContentSharingPickerObserver {
     nonisolated public func contentSharingPickerStartDidFailWithError(_ error: Error) {
         print("Picker error: \(error)")
     }
+
 }
+
+extension SCContentFilter: @unchecked Sendable {}

@@ -11,8 +11,8 @@ import ScreenCaptureKit
 @MainActor
 public protocol ScreenRecordProviding {
     
-    var onScreenFrame: ((CMSampleBuffer) -> Void)? {get set}
-    var onAudioFrame:  ((CMSampleBuffer) -> Void)? {get set}
+    var onScreenFrame: ScreenFrameHandler? {get set}
+    var onAudioFrame:  ScreenFrameHandler? {get set}
 
     
     func hasScreenRecordPermission() -> Bool
@@ -24,5 +24,5 @@ public protocol ScreenRecordProviding {
     func stopRecording() async
 }
 
-extension CMSampleBuffer: @unchecked Sendable {}
-extension SCContentFilter: @unchecked Sendable {}
+
+public typealias ScreenFrameHandler = @Sendable (CMSampleBuffer) -> Void
