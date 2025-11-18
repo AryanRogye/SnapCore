@@ -6,6 +6,8 @@
 //
 
 
+#if os(macOS)
+
 import AppKit
 import ScreenCaptureKit
 
@@ -18,3 +20,5 @@ import ScreenCaptureKit
 public final class ScreenshotService: ScreenshotProviding {
     public init() {}
 }
+
+#endif

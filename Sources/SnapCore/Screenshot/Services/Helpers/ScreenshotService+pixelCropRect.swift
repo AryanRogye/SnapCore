@@ -5,6 +5,7 @@
 //  Created by Aryan Rogye on 9/28/25.
 //
 
+#if os(macOS)
 import AppKit
 
 extension ScreenshotService {
@@ -36,3 +37,5 @@ extension ScreenshotService {
         return clamped
     }
 }
+
+#endif

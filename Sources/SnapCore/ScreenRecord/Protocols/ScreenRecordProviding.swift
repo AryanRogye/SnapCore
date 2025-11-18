@@ -5,6 +5,7 @@
 //  Created by Aryan Rogye on 10/2/25.
 //
 
+#if os(macOS)
 import AppKit
 import ScreenCaptureKit
 
@@ -26,3 +27,4 @@ public protocol ScreenRecordProviding {
 
 
 public typealias ScreenFrameHandler = @Sendable (CMSampleBuffer) -> Void
+#endif

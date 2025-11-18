@@ -5,6 +5,7 @@
 //  Created by Aryan Rogye on 10/2/25.
 //
 
+#if os(macOS)
 import ScreenCaptureKit
 
 final class StreamOutput: NSObject, SCStreamOutput {
@@ -24,3 +25,5 @@ final class StreamOutput: NSObject, SCStreamOutput {
         }
     }
 }
+
+#endif

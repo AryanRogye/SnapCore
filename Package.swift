@@ -6,7 +6,8 @@ import PackageDescription
 let package = Package(
     name: "SnapCore",
     platforms: [
-        .macOS(.v14)
+        .macOS(.v14),
+        .iOS(.v17)
     ],
     products: [
         .library(
@@ -18,10 +19,18 @@ let package = Package(
         .target(
             name: "SnapCore",
             dependencies: [],
-            linkerSettings: [
-                .linkedFramework("ScreenCaptureKit"),
-                .linkedFramework("CoreGraphics"),
-                .linkedFramework("AppKit")
+            swiftSettings: [
+                .define("MACOS_ONLY", .when(platforms: [.macOS]))
+            ], linkerSettings: [
+                // macOS-only frameworks:
+                .linkedFramework("ScreenCaptureKit", .when(platforms: [.macOS])),
+                .linkedFramework("AppKit",           .when(platforms: [.macOS])),
+
+                // iOS-only (if needed):
+                .linkedFramework("UIKit",            .when(platforms: [.iOS])),
+                
+                // both platforms:
+                .linkedFramework("CoreGraphics")
             ]
         ),
         .testTarget(

@@ -5,6 +5,7 @@
 //  Created by Aryan Rogye on 10/2/25.
 //
 
+#if os(macOS)
 import ScreenCaptureKit
 
 extension ScreenRecordService: SCContentSharingPickerObserver {
@@ -12,7 +13,6 @@ extension ScreenRecordService: SCContentSharingPickerObserver {
     nonisolated public func contentSharingPicker(_ picker: SCContentSharingPicker, didCancelFor stream: SCStream?) {
         print("User cancelled")
     }
-    
     
     nonisolated public func contentSharingPicker(_ picker: SCContentSharingPicker, didUpdateWith filter: SCContentFilter, for stream: SCStream?) {
         Task { @MainActor in
@@ -28,3 +28,5 @@ extension ScreenRecordService: SCContentSharingPickerObserver {
 }
 
 extension SCContentFilter: @unchecked Sendable {}
+
+#endif

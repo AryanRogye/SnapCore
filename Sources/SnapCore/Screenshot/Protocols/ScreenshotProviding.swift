@@ -5,6 +5,7 @@
 //  Created by Aryan Rogye on 9/26/25.
 //
 
+#if os(macOS)
 import AppKit
 
 // MARK: - Protocol
@@ -22,3 +23,5 @@ public protocol ScreenshotProviding {
     /// Captures a screenshot of a specific `NSScreen`.
     func takeScreenshot(of screen: NSScreen, croppingTo rect: CGRect) async -> CGImage?
 }
+
+#endif

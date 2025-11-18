@@ -5,6 +5,7 @@
 //  Created by Aryan Rogye on 9/28/25.
 //
 
+#if os(macOS)
 import ScreenCaptureKit
 
 extension ScreenshotService {
@@ -37,3 +38,5 @@ extension ScreenshotService {
         }
     }
 }
+
+#endif

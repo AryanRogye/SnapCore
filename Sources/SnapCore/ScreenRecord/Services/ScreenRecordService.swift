@@ -3,6 +3,8 @@
 //  SnapCore
 //
 
+#if os(macOS)
+
 import AppKit
 import ScreenCaptureKit
 
@@ -24,3 +26,6 @@ public final class ScreenRecordService: NSObject, ScreenRecordProviding {
         super.init()
     }    
 }
+
+
+#endif

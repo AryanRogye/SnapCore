@@ -5,6 +5,7 @@
 //  Created by Aryan Rogye on 10/2/25.
 //
 
+#if os(macOS)
 import ScreenCaptureKit
 
 extension ScreenRecordService {
@@ -12,3 +13,5 @@ extension ScreenRecordService {
         return CGPreflightScreenCaptureAccess()
     }
 }
+
+#endif
