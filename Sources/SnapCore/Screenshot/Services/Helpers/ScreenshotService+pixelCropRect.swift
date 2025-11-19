@@ -9,32 +9,19 @@
 import AppKit
 
 extension ScreenshotService {
-    static func pixelCropRect(fromPoints r: CGRect, image: CGImage, screenSizePoints: CGSize) -> CGRect {
+    /// Normalizes a requested crop rect into the coordinate space of an `NSScreen`.
+    /// Values outside the screen bounds are clamped so ScreenCaptureKit can safely crop.
+    static func normalizedCropRect(from rect: CGRect, on screen: NSScreen) -> CGRect {
+        let bounds = CGRect(origin: .zero, size: screen.frame.size)
+        let r = rect.standardized
         
-        func clamp(_ r: CGRect, to bounds: CGRect) -> CGRect {
-            let x = max(bounds.minX, min(r.minX, bounds.maxX))
-            let y = max(bounds.minY, min(r.minY, bounds.maxY))
-            let w = max(0, min(r.width, bounds.maxX - x))
-            let h = max(0, min(r.height, bounds.maxY - y))
-            return CGRect(x: x, y: y, width: w, height: h)
-        }
+        let x = max(bounds.minX, min(r.minX, bounds.maxX))
+        let y = max(bounds.minY, min(r.minY, bounds.maxY))
         
+        let width = max(0, min(r.width, bounds.maxX - x))
+        let height = max(0, min(r.height, bounds.maxY - y))
         
-        let imageSize: CGSize = CGSize(width: image.width, height: image.height)
-        
-        let sx = imageSize.width / screenSizePoints.width
-        let sy = imageSize.height / screenSizePoints.height
-        let x = r.origin.x * sx
-        let y = r.origin.y * sy
-        let w = r.size.width * sx
-        let h = r.size.height * sy
-        
-        
-        let pixelRect = CGRect(x: floor(x), y: floor(y), width: floor(w), height: floor(h))
-        let bounds = CGRect(x: 0, y: 0, width: image.width, height: image.height)
-        let clamped = clamp(pixelRect, to: bounds)
-        
-        return clamped
+        return CGRect(x: x, y: y, width: width, height: height)
     }
 }
 
