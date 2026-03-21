@@ -14,7 +14,6 @@ public protocol ScreenRecordProviding {
     
     var onScreenFrame: ScreenFrameHandler? {get set}
     var onAudioFrame:  ScreenFrameHandler? {get set}
-
     
     func hasScreenRecordPermission() -> Bool
     func startRecording(
@@ -23,8 +22,12 @@ public protocol ScreenRecordProviding {
         capturesAudio: Bool
     )
     func stopRecording() async
+    func getCachedFilter() -> SCContentFilter?
+    func getLastScaleFactorUsed() -> CGFloat
+    func prepareRecordingOutput(url: URL)
+    func getRecordingOutputErrorMessage() -> String?
 }
 
 
-public typealias ScreenFrameHandler = @Sendable (CMSampleBuffer) -> Void
+public typealias ScreenFrameHandler = (SendableSampleBuffer) async -> Void
 #endif

@@ -21,6 +21,14 @@ extension ScreenRecordService {
         
         self.showsCursor = showsCursor
         self.capturesAudio = capturesAudio
+        self.scale = scale
+        
+        if let cached = cachedFilter {
+            Task {
+                try? await startCapture(with: cached)
+            }
+            return
+        }
         
         var config = SCContentSharingPickerConfiguration()
         config.allowedPickerModes = [.singleDisplay]

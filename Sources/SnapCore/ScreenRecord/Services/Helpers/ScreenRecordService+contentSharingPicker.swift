@@ -17,6 +17,7 @@ extension ScreenRecordService: SCContentSharingPickerObserver {
     nonisolated public func contentSharingPicker(_ picker: SCContentSharingPicker, didUpdateWith filter: SCContentFilter, for stream: SCStream?) {
         Task { @MainActor in
             SCContentSharingPicker.shared.isActive = false
+            self.cachedFilter = filter
             try? await self.startCapture(with: filter)
         }
     }
