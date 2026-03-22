@@ -23,22 +23,27 @@ public final class PlaybackImageCoordinator {
     var videoOutput: AVPlayerItemVideoOutput
     
     public var currentFrame: CGImage?
+    public var originalCurrentFrame: CGImage?
     public var currentSharpenedFrame: CGImage?
     public var currentContrastedFrame: CGImage?
     public var currentFrameColor: NSColor?
     
     private var player: AVPlayer?
     
-    private let ciContext = CIContext()
+    internal let ciContext = CIContext()
     private var displayLink: CADisplayLink?
     var currentMouse: CurrentMouseInfo?
     
     var currentTime: Float64 = 0
     var progress: Double = 0
     
+    /// Sharpness
+    public var isAdjustingSharpness = false
     public var sharpness: CGFloat = 2.0
     public var sharpnessSideBySide: Bool = false
     
+    /// Contrast
+    public var isAdjustingContrast = false
     public var contrast: CGFloat = 1.0
     public var contrastSideBySide: Bool = false
     
@@ -52,6 +57,7 @@ public final class PlaybackImageCoordinator {
             kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA
         ]
         videoOutput = AVPlayerItemVideoOutput(pixelBufferAttributes: settings)
+        self.observeValues()
     }
     
     public func assign(to player: AVPlayer) {
@@ -93,86 +99,29 @@ public final class PlaybackImageCoordinator {
         
         processImage(pixelBuffer: pixelBuffer)
     }
-    
-    @MainActor
-    private func getFrameInfo(_ time: CMTime) -> FrameInfo? {
-        // Make sure we have frames
-        guard let firstFrameTime = recordingInfo.frames.first?.time else { return nil }
-        
-        // Find the frame where its relative time (absolute - start) matches the player time
-        if let frame = recordingInfo.frames.last(where: {
-            let relativeFrameTime = CMTimeSubtract($0.time, firstFrameTime)
-            return relativeFrameTime <= time
-        }) {
-            return frame
+}
+
+// MARK: - Observations
+extension PlaybackImageCoordinator {
+    /// Function Observes:
+    /// Sharpness
+    /// Contrast
+    public func observeValues() {
+        withObservationTracking {
+            _ = self.isAdjustingSharpness;
+            _ = self.isAdjustingContrast
+            _ = self.sharpness
+            _ = self.contrast
+        } onChange: {
+            DispatchQueue.main.async { [weak self] in
+                guard let self else { return }
+                
+                if let originalCurrentFrame {
+                    processImage(cgImage: originalCurrentFrame)
+                }
+                
+                observeValues()
+            }
         }
-        
-        // Fallback
-        return recordingInfo.frames.first
-    }
-    
-    private func processImage(pixelBuffer: CVPixelBuffer) {
-        guard let original = getCG(from: pixelBuffer) else { return }
-        
-        let contrasted = getContrastedImage(original)
-        let baseForSharpness = contrasted ?? original
-        let sharpened = getSharpenedImage(baseForSharpness)
-        
-        updateDisplayedFrames(
-            original: original,
-            contrasted: contrasted,
-            sharpened: sharpened,
-            baseForSharpness: baseForSharpness
-        )
-        
-        currentFrameColor = imageProcessor.getDominantColor(from: original)
-    }
-    
-    private func getContrastedImage(_ image: CGImage) -> CGImage? {
-        do {
-            return try imageContrastBooster.boostContrast(for: image, factor: Float(contrast))
-        } catch {
-            print("Error applying contrast: \(error)")
-            return nil
-        }
-    }
-    
-    private func getSharpenedImage(_ image: CGImage) -> CGImage? {
-        do {
-            return try imageSharpener.sharpen(image, sharpness: Float(sharpness))
-        } catch {
-            print("Error sharpening image: \(error)")
-            return nil
-        }
-    }
-    
-    private func updateDisplayedFrames(
-        original: CGImage,
-        contrasted: CGImage?,
-        sharpened: CGImage?,
-        baseForSharpness: CGImage
-    ) {
-        if contrastSideBySide {
-            currentContrastedFrame = contrasted
-        } else {
-            currentContrastedFrame = nil
-        }
-        
-        if sharpnessSideBySide {
-            currentFrame = baseForSharpness
-            currentSharpenedFrame = sharpened
-        } else {
-            currentSharpenedFrame = nil
-            currentFrame = sharpened ?? baseForSharpness
-        }
-        
-        if !contrastSideBySide && sharpened == nil && contrasted == nil {
-            currentFrame = original
-        }
-    }
-    
-    private func getCG(from pixelBuffer: CVPixelBuffer) -> CGImage? {
-        let ciImage = CIImage(cvPixelBuffer: pixelBuffer)
-        return ciContext.createCGImage(ciImage, from: ciImage.extent)
     }
 }
