@@ -54,53 +54,64 @@ public final class RecordingCoordinator {
         beginRecordingActivity()
         mouseCoordinator.startMonitoring()
         
-        recorder.onScreenFrame = { sample in
-            do {
-                guard let info = SampleValidator.isValidSample(sample) else { return }
-                
-                try await self.fileWriter.write(
-                    sample: sample,
-                    info: info,
-                    onFrameWritten: { [weak self] in
-                        Task { @MainActor [weak self] in
-                            guard let self else { return }
-                            let mouse = NSEvent.mouseLocation
-                            self.recordingInfo.append(
-                                FrameInfo(
-                                    time: sample.buffer.presentationTimeStamp,
-                                    mouse: mouse,
-                                    leftMouseDown: self.mouseCoordinator.isLeftMouseDown,
-                                    rightMouseDown: self.mouseCoordinator.isRightMouseDown
+        var didResumeStart = false
+        
+        await withCheckedContinuation { continuation in
+            recorder.onScreenFrame = { sample in
+                do {
+                    guard let info = SampleValidator.isValidSample(sample) else { return }
+                    
+                    try await self.fileWriter.write(
+                        sample: sample,
+                        info: info,
+                        onFrameWritten: { [weak self] in
+                            Task { @MainActor [weak self] in
+                                guard let self else { return }
+                                
+                                let mouse = NSEvent.mouseLocation
+                                self.recordingInfo.append(
+                                    FrameInfo(
+                                        time: sample.buffer.presentationTimeStamp,
+                                        mouse: mouse,
+                                        leftMouseDown: self.mouseCoordinator.isLeftMouseDown,
+                                        rightMouseDown: self.mouseCoordinator.isRightMouseDown
+                                    )
                                 )
-                            )
-                            self.frameCount += 1
-                            guard self.frameCount % self.processEvery == 0 else { return }
-                            if let img = self.convert(sample: sample.buffer) {
-                                self.recordingInfo.setLastImage(img)
+                                
+                                self.frameCount += 1
+                                guard self.frameCount % self.processEvery == 0 else {
+                                    if !didResumeStart {
+                                        didResumeStart = true
+                                        continuation.resume()
+                                    }
+                                    return
+                                }
+                                
+                                if let img = self.convert(sample: sample.buffer) {
+                                    self.recordingInfo.setLastImage(img)
+                                }
+                                
+                                if !didResumeStart {
+                                    didResumeStart = true
+                                    continuation.resume()
+                                }
                             }
                         }
-                    }
-                )
-                
-
-            } catch let e as FileWriterError {
-                switch e {
-                case .errorCreatingWriter:
-                    print("Error Creating Writer")
-                case .errorWritingToFile(let error):
+                    )
+                } catch {
                     print(error)
                 }
-            } catch {
-                print("Error: \(error)")
             }
+            
+            recorder.startRecording(
+                scale: scale,
+                showsCursor: true,
+                capturesAudio: false,
+                fps: fps
+            )
+            
+            self.lastBackingScaleFactorUsed = self.recorder.getLastScaleFactorUsed()
         }
-        recorder.startRecording(
-            scale: scale,
-            showsCursor: true,
-            capturesAudio: false,
-            fps: fps
-        )
-        self.lastBackingScaleFactorUsed = self.recorder.getLastScaleFactorUsed()
     }
     
     public func stopRecording() async throws {
