@@ -47,6 +47,9 @@ public final class PlaybackImageCoordinator {
     public var contrast: CGFloat = 1.0
     public var contrastSideBySide: Bool = false
     
+    /// Cursor
+    public var cursorConfig : CursorConfig?
+    
     let imageColorProcessor = ImageColorProcessor()
     let imageContrastBooster = ImageContrastBooster()
     let imageSharpener = ImageSharpener()
@@ -68,10 +71,18 @@ public final class PlaybackImageCoordinator {
         Task { @MainActor [weak self] in
             guard let self else { return }
             
-            let scale = CursorSizeHelper.cursorScale()
-            let safeScale = max(1.0, CGFloat(scale))
+            if cursorConfig == nil {
+                let scale = CursorSizeHelper.cursorScale()
+                let safeScale = max(1.0, CGFloat(scale))
+                cursorConfig = CursorConfig(
+                    size: CGSize(width: safeScale * 16, height: safeScale * 16),
+                    lineWidth: 2
+                )
+            }
+            guard let cursorConfig else { return }
+            
             if let cursor = CursorShape.makeCursorCGImage(
-                size: CGSize(width: safeScale * 16, height: safeScale * 16)
+                config: cursorConfig
             ) {
                 do {
                     cursorTexture = try MetalHelpers.getImageTexture(from: cursor)
@@ -125,6 +136,19 @@ public final class PlaybackImageCoordinator {
 
 // MARK: - Observations
 extension PlaybackImageCoordinator {
+    
+    public func observeCursor() {
+        withObservationTracking {
+            _ = self.cursorConfig
+        } onChange: {
+            DispatchQueue.main.async { [weak self] in
+                guard let self else { return }
+                assignCursorImage()
+                self.observeCursor()
+            }
+        }
+    }
+    
     /// Function Observes:
     /// Sharpness
     /// Contrast

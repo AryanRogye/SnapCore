@@ -7,18 +7,26 @@
 
 import SwiftUI
 
+public struct CursorConfig {
+    public var size: CGSize
+    public var lineWidth: CGFloat
+    public var innerColor: Color = .black
+    public var outerColor: Color = .white
+}
+
 public struct CursorShape: Shape {
-    
     @MainActor
-    public static func makeCursorCGImage(size: CGSize) -> CGImage? {
+    public static func makeCursorCGImage(
+        config: CursorConfig,
+    ) -> CGImage? {
         let view = NSHostingView(
             rootView:
                 CursorShape()
-                .fill(.black)
+                .fill(config.innerColor)
                 .overlay {
                     CursorShape()
-                        .stroke(.white, style: StrokeStyle(
-                            lineWidth: 2,
+                        .stroke(config.outerColor, style: StrokeStyle(
+                            lineWidth: config.lineWidth,
                             lineCap: .round,
                             lineJoin: .round
                         ))
@@ -26,6 +34,7 @@ public struct CursorShape: Shape {
                 .rotationEffect(.degrees(-20))
         )
         
+        let size = config.size
         view.frame = CGRect(origin: .zero, size: size)
         
         let rep = view
