@@ -34,8 +34,9 @@ final class MetalContext {
         }
 
         let shaderPaths = [
-            ("Contrast", "metal", "Playback/Image/Contrast"),
-            ("sharpen", "metal", "Playback/Image/Sharpen")
+            ("Contrast", "metal", "Processing/Contrast"),
+            ("Sharpen", "metal", "Processing/Sharpen"),
+            ("Cursor", "metal", "Processing/Cursor")
         ]
         
         let source = shaderPaths.map { name, ext, subdirectory in

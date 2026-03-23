@@ -52,8 +52,8 @@ let package = Package(
                 .product(name: "Collections", package: "swift-collections")
             ],
             resources: [
-                .copy("Playback/Image/Contrast/Contrast.metal"),
-                .copy("Playback/Image/Sharpen/sharpen.metal")
+                .copy("Processing/Contrast/Contrast.metal"),
+                .copy("Processing/Sharpen/sharpen.metal")
             ]
         ),
         .testTarget(

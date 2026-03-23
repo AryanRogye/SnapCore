@@ -37,7 +37,7 @@ extension PlaybackImageCoordinator {
             cursored: cursored
         )
         
-        currentFrameColor = imageProcessor.getDominantColor(from: original)
+        currentFrameColor = imageColorProcessor.getDominantColor(from: original)
     }
     
     @MainActor

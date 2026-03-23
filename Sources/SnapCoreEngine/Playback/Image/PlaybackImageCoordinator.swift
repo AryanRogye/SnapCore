@@ -47,7 +47,7 @@ public final class PlaybackImageCoordinator {
     public var contrast: CGFloat = 1.0
     public var contrastSideBySide: Bool = false
     
-    let imageProcessor = ImageProcessor()
+    let imageColorProcessor = ImageColorProcessor()
     let imageContrastBooster = ImageContrastBooster()
     let imageSharpener = ImageSharpener()
     let cursorSticher = CursorSticher()

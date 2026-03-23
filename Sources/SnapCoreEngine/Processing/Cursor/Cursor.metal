@@ -40,11 +40,11 @@ kernel void stitchCursor(
     float4 finalColor = baseColor;
     
     if (local.x >= 0 && local.y >= 0 &&
-        local.x < cursorWidth && local.y < cursorHeight) {
+        local.x < int(cursorWidth) &&
+        local.y < int(cursorHeight)) {
         
         float4 cursorColor = cursorTexture.read(uint2(local));
         
-        // standard alpha blend
         finalColor.rgb = cursorColor.rgb * cursorColor.a + baseColor.rgb * (1.0 - cursorColor.a);
         finalColor.a = cursorColor.a + baseColor.a * (1.0 - cursorColor.a);
     }

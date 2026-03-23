@@ -1,5 +1,5 @@
 //
-//  ImageProcessor.swift
+//  ImageColorProcessor.swift
 //  TestingSR
 //
 //  Created by Aryan Rogye on 3/19/26.
@@ -8,7 +8,7 @@
 import Accelerate
 import AppKit
 
-final class ImageProcessor {
+final class ImageColorProcessor {
     
     public func getDominantColor(from image: NSImage) -> NSColor? {
         guard let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
@@ -107,7 +107,7 @@ final class ImageProcessor {
 }
 
 
-extension ImageProcessor {
+extension ImageColorProcessor {
     internal func adjustBrightness(
         red: CGFloat,
         green: CGFloat,
