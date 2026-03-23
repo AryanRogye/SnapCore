@@ -48,7 +48,10 @@ public final class PlaybackImageCoordinator {
     public var contrastSideBySide: Bool = false
     
     /// Cursor
-    public var cursorConfig : CursorConfig?
+    public var cursorConfig = CursorConfig(
+        size: CGSize(width: 16, height: 16),
+        lineWidth: 2
+    )
     
     let imageColorProcessor = ImageColorProcessor()
     let imageContrastBooster = ImageContrastBooster()
@@ -63,23 +66,21 @@ public final class PlaybackImageCoordinator {
             kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA
         ]
         videoOutput = AVPlayerItemVideoOutput(pixelBufferAttributes: settings)
+        
+        cursorConfig = CursorConfig(
+            size: CGSize(width: 16, height: 16),
+            scale: max(1.0, CGFloat(CursorSizeHelper.cursorScale())),
+            lineWidth: 2
+        )
+        
         self.assignCursorImage()
         self.observeValues()
+        self.observeCursor()
     }
     
     public func assignCursorImage() {
         Task { @MainActor [weak self] in
             guard let self else { return }
-            
-            if cursorConfig == nil {
-                let scale = CursorSizeHelper.cursorScale()
-                let safeScale = max(1.0, CGFloat(scale))
-                cursorConfig = CursorConfig(
-                    size: CGSize(width: safeScale * 16, height: safeScale * 16),
-                    lineWidth: 2
-                )
-            }
-            guard let cursorConfig else { return }
             
             if let cursor = CursorShape.makeCursorCGImage(
                 config: cursorConfig
@@ -139,11 +140,26 @@ extension PlaybackImageCoordinator {
     
     public func observeCursor() {
         withObservationTracking {
-            _ = self.cursorConfig
+            _ = self.cursorConfig.innerColor
+            _ = self.cursorConfig.outerColor
+            _ = self.cursorConfig.scale
+            _ = self.cursorConfig.size
+            _ = self.cursorConfig.lineWidth
+            _ = self.cursorConfig.distanceFromBottomScale
+            _ = self.cursorConfig.distanceFromCenterScale
+            _ = self.cursorConfig.distanceFromHorizontal
+            _ = self.cursorConfig.wingDistanceDown
         } onChange: {
             DispatchQueue.main.async { [weak self] in
                 guard let self else { return }
                 assignCursorImage()
+                if let originalCurrentFrame {
+                    do {
+                        try processImage(cgImage: originalCurrentFrame)
+                    } catch {
+                        print("Error Processing Image in Observation: \(error.localizedDescription)")
+                    }
+                }
                 self.observeCursor()
             }
         }
