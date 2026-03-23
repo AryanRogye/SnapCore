@@ -19,6 +19,7 @@ public final class RecordingCoordinator {
     var recorder : ScreenRecordProviding
     
     public var scale: VideoScale = .native
+    public var fps  : FPS = .fps120
     
     public var lastBackingScaleFactorUsed: CGFloat = 2.0
 
@@ -97,7 +98,7 @@ public final class RecordingCoordinator {
             scale: scale,
             showsCursor: true,
             capturesAudio: false,
-            fps: .fps120
+            fps: fps
         )
         self.lastBackingScaleFactorUsed = self.recorder.getLastScaleFactorUsed()
     }

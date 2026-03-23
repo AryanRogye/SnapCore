@@ -37,7 +37,6 @@ extension PlaybackImageCoordinator {
         _ image: CGImage
     ) -> CGImage? {
         guard isAdjustingContrast else {
-            print("Returning Nil")
             return nil
         }
         do {
@@ -56,7 +55,6 @@ extension PlaybackImageCoordinator {
         _ image: CGImage
     ) -> CGImage? {
         guard isAdjustingSharpness else {
-            print("Returning Nil")
             return nil
         }
         do {

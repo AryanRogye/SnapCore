@@ -13,7 +13,7 @@ extension ScreenRecordService {
         scale: VideoScale = .normal,
         showsCursor: Bool = true,
         capturesAudio: Bool = true,
-        fps: FPS = .fps60
+        fps: FPS = .fps120
     ) {
         guard hasScreenRecordPermission() else {
             CGRequestScreenCaptureAccess()

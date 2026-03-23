@@ -17,7 +17,8 @@ extension ScreenRecordService {
         config.pixelFormat = kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
         config.showsCursor = showsCursor
         config.capturesAudio = capturesAudio
-        config.minimumFrameInterval = CMTime(value: 1, timescale: 60)
+        config.minimumFrameInterval = CMTime(value: 1, timescale: CMTimeScale(fps.value))
+        
         config.captureResolution = .best
         config.presenterOverlayPrivacyAlertSetting = .always
         config.colorSpaceName = CGColorSpace.displayP3

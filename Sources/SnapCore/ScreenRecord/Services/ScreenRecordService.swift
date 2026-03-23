@@ -16,7 +16,7 @@ public final class ScreenRecordService: NSObject, ScreenRecordProviding {
     internal var showsCursor: Bool = true
     internal var capturesAudio: Bool = true
     internal var scale: VideoScale = .normal
-    internal var fps: FPS = .fps60
+    internal var fps: FPS = .fps120
     internal var cachedFilter: SCContentFilter?
     internal var lastBackingScaleFactorUsed: CGFloat = 2.0
     internal var pendingRecordingOutputURL: URL?
