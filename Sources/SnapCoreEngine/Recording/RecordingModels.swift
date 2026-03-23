@@ -1,5 +1,5 @@
 //
-//  FrameInfo.swift
+//  RecordingModels.swift
 //  TestingSR
 //
 //  Created by Aryan Rogye on 3/18/26.

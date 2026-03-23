@@ -23,7 +23,7 @@ extension ScreenRecordService {
         config.colorSpaceName = CGColorSpace.displayP3
         config.queueDepth = 8
         
-        (config.width, config.height) = self.calculateWidthAndHeight(display: display)
+        (config.width, config.height) = self.calculateWidthAndHeightOfDisplay(display: display)
         
         config.scalesToFit = false
         config.preservesAspectRatio = true
@@ -71,6 +71,22 @@ extension ScreenRecordService {
         self.streamOutput = output
         
         try await stream.startCapture()
+    }
+    
+    internal func attachOutput(_ output: StreamOutput) {
+        streamOutput = output
+        
+        screenFrameTask = Task { [weak self] in
+            for await frame in output.screenFrames {
+                await self?.onScreenFrame?(frame)
+            }
+        }
+        
+        audioFrameTask = Task { [weak self] in
+            for await frame in output.audioFrames {
+                await self?.onAudioFrame?(frame)
+            }
+        }
     }
 }
 

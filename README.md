@@ -134,7 +134,8 @@ Task { @MainActor in
     recorder.startRecording(
         scale: .high,
         showsCursor: true,
-        capturesAudio: true
+        capturesAudio: true,
+        fps: .fps60
     )
 
     // Later, stop and clean up
@@ -190,7 +191,7 @@ recorder.onScreenFrame = { [weak self] sample in
   - `onScreenFrame: ((SendableSampleBuffer) async -> Void)?`: called for video frames.
   - `onAudioFrame: ((SendableSampleBuffer) async -> Void)?`: called for audio frames when enabled.
   - `hasScreenRecordPermission() -> Bool`: returns current Screen Recording authorization state.
-  - `startRecording(scale: VideoScale = .normal, showsCursor: Bool = true, capturesAudio: Bool = true)`: presents the system picker and begins streaming frames after selection.
+  - `startRecording(scale: VideoScale = .normal, showsCursor: Bool = true, capturesAudio: Bool = true, fps: FPS = .fps60)`: presents the system picker and begins streaming frames after selection.
   - `stopRecording() async`: stops capture and releases resources.
   - `getCachedFilter() -> SCContentFilter?`: returns the last display filter selected from the system picker.
   - `getLastScaleFactorUsed() -> CGFloat`: returns the backing scale factor used when computing native resolution.
@@ -203,6 +204,11 @@ recorder.onScreenFrame = { [weak self] sample in
   - `.high`: targets a 2160-tall output while preserving display aspect ratio.
   - `.ultra`: targets a 4320-tall output while preserving display aspect ratio.
   - `.native`: uses the selected display's native pixel dimensions.
+
+- `FPS`
+  - `.fps30`: records at 30 FPS.
+  - `.fps60`: records at 60 FPS.
+  - `.fps120`: records at 120 FPS.
 
 - `SendableSampleBuffer`
   - `buffer: CMSampleBuffer`: the wrapped sample buffer.
@@ -381,6 +387,7 @@ struct ExportButton: View {
 - Actors: `ScreenRecordService` is `@MainActor`, and frame handlers are async callbacks awaited by the service. Keep handlers lightweight and offload heavy work if needed.
 - Picker: The system content picker is limited to single-display selection in the current build. After a successful selection, the chosen filter is cached and reused for later `startRecording()` calls on the same service instance.
 - Audio: When `capturesAudio` is `true`, audio sample buffers are delivered. You are responsible for mixing/muxing.
+- Frame rate: pass `fps` to `startRecording()` to choose `30`, `60`, or `120` FPS. The default is `.fps60`.
 - File output: call `prepareRecordingOutput(url:)` before `startRecording()` if you want ScreenCaptureKit to write a `.mov`, `.mp4`, or `.m4v` file directly.
 - Metal: `SnapCoreEngine` compiles its bundled shader sources internally from package resources. Consumer apps do not need extra Metal-specific setup beyond running on a Metal-capable Mac.
 - Cleanup: Always call `stopRecording()` when done to stop the stream, clear any pending recording output URL, and deactivate the picker.

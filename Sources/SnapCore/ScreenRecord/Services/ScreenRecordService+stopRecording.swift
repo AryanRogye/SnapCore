@@ -12,7 +12,6 @@ extension ScreenRecordService {
     public func stopRecording() async {
         if let stream = stream, let output = streamOutput {
             if let _ = recordingOutputStorage as? SCRecordingOutput {
-//                try? stream.removeRecordingOutput(recordingOutput)
                 self.recordingOutputStorage = nil
             }
             try? stream.removeStreamOutput(output, type: .screen)
@@ -27,6 +26,14 @@ extension ScreenRecordService {
         recordingOutputStorage = nil
         pendingRecordingOutputURL = nil
         SCContentSharingPicker.shared.isActive = false
+    }
+    
+    internal func detachOutput() {
+        screenFrameTask?.cancel()
+        audioFrameTask?.cancel()
+        screenFrameTask = nil
+        audioFrameTask = nil
+        streamOutput = nil
     }
 }
 

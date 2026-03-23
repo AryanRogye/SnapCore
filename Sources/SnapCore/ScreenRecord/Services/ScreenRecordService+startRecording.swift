@@ -12,7 +12,8 @@ extension ScreenRecordService {
     public func startRecording(
         scale: VideoScale = .normal,
         showsCursor: Bool = true,
-        capturesAudio: Bool = true
+        capturesAudio: Bool = true,
+        fps: FPS = .fps60
     ) {
         guard hasScreenRecordPermission() else {
             CGRequestScreenCaptureAccess()
@@ -22,6 +23,7 @@ extension ScreenRecordService {
         self.showsCursor = showsCursor
         self.capturesAudio = capturesAudio
         self.scale = scale
+        self.fps = fps
         
         if let cached = cachedFilter {
             Task {

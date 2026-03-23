@@ -97,6 +97,7 @@ public final class RecordingCoordinator {
             scale: scale,
             showsCursor: true,
             capturesAudio: false,
+            fps: .fps120
         )
         self.lastBackingScaleFactorUsed = self.recorder.getLastScaleFactorUsed()
     }

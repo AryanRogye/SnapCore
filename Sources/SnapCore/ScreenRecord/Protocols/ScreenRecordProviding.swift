@@ -19,7 +19,8 @@ public protocol ScreenRecordProviding {
     func startRecording(
         scale : VideoScale,
         showsCursor: Bool,
-        capturesAudio: Bool
+        capturesAudio: Bool,
+        fps: FPS
     )
     func stopRecording() async
     func getCachedFilter() -> SCContentFilter?
