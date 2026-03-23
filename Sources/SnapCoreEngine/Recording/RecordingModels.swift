@@ -17,6 +17,7 @@ public final class RecordingInfo {
     public var lastImage: CGImage?
     public var frames: [FrameInfo] = []
     
+    public var isUsingCustomCursor = false
     public var displayWidth: Int?
     public var displayHeight: Int?
     public var frame: CGRect?

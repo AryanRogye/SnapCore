@@ -22,7 +22,7 @@ let package = Package(
         .package(
             url: "https://github.com/apple/swift-collections.git",
             .upToNextMajor(from: "1.4.0")
-        )
+        ),
     ],
     // MARK: - Targets
     targets: [

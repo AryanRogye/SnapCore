@@ -8,25 +8,60 @@
 import AVFoundation
 
 extension PlaybackImageCoordinator {
+    @MainActor
     internal func processImage(pixelBuffer: CVPixelBuffer) {
         guard let original = getCG(from: pixelBuffer) else { return }
-        self.processImage(cgImage: original)
+        do {
+            try self.processImage(cgImage: original)
+        } catch {
+            print("Error Processing Image: \(error.localizedDescription)")
+        }
     }
     
-    internal func processImage(cgImage: CGImage) {
-        var original = cgImage
-        let contrasted = getContrastedImage(original)
-        let baseForSharpness = contrasted ?? original
+    @MainActor
+    internal func processImage(cgImage: CGImage) throws {
+        let original = cgImage
+        guard let originalTexture = try MetalHelpers.getImageTexture(from: original) else { return }
+        
+        let contrasted = getContrastedImage(originalTexture)
+        let baseForSharpness = contrasted ?? originalTexture
         let sharpened = getSharpenedImage(baseForSharpness)
+        let baseForCursor = sharpened ?? baseForSharpness
+        let cursored = getCursoredImage(baseForCursor) ?? baseForCursor
         
         updateDisplayedFrames(
-            original: original,
+            original: originalTexture,
             contrasted: contrasted,
             sharpened: sharpened,
-            baseForSharpness: baseForSharpness
+            baseForSharpness: baseForSharpness,
+            cursored: cursored
         )
         
         currentFrameColor = imageProcessor.getDominantColor(from: original)
+    }
+    
+    @MainActor
+    private func getCursoredImage(
+        _ image: MTLTexture
+    ) -> MTLTexture? {
+        
+        /// if we recorded with the cursor return nil
+        guard recordingInfo.isUsingCustomCursor else { return nil }
+        
+        guard let cursorTexture,
+              let point = currentMouse?.point,
+              let frame = recordingInfo.frame else { return nil }
+        do {
+            return try cursorSticher.apply(
+                cursorTexture,
+                onto: image,
+                at: point,
+                screen: frame
+            )
+        } catch {
+            print("Error Applying Cursor")
+            return nil
+        }
     }
     
     /**
@@ -34,8 +69,8 @@ extension PlaybackImageCoordinator {
      * or else we try to get the contrast
      */
     private func getContrastedImage(
-        _ image: CGImage
-    ) -> CGImage? {
+        _ image: MTLTexture
+    ) -> MTLTexture? {
         guard isAdjustingContrast else {
             return nil
         }
@@ -52,8 +87,8 @@ extension PlaybackImageCoordinator {
      * or else we try to get the sharpness
      */
     private func getSharpenedImage(
-        _ image: CGImage
-    ) -> CGImage? {
+        _ image: MTLTexture
+    ) -> MTLTexture? {
         guard isAdjustingSharpness else {
             return nil
         }

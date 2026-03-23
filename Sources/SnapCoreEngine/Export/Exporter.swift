@@ -266,6 +266,17 @@ public final class Exporter {
         }
     }
     
+    internal func getCGImage(from texture: MTLTexture) -> CGImage? {
+        guard let ciImage = CIImage(mtlTexture: texture, options: [
+            .colorSpace: CGColorSpace(name: CGColorSpace.sRGB)!
+        ]) else { return nil }
+        let flipped = ciImage.transformed(by: CGAffineTransform(scaleX: 1, y: -1)
+            .translatedBy(x: 0, y: -ciImage.extent.height))
+        
+        let context = CIContext(mtlDevice: MetalContext.shared.device)
+        return context.createCGImage(flipped, from: flipped.extent)
+    }
+    
     private func processFrame(
         inputBuffer: CVPixelBuffer,
         sharpness: Float,
@@ -279,10 +290,11 @@ public final class Exporter {
         let outputCGImage: CGImage
         
         // MARK: here
-        cgImage = try imageContrastBooster.boostContrast(for: cgImage, factor: contrast) ?? cgImage
+        guard let texture = try MetalHelpers.getImageTexture(from: cgImage) else { throw ExportError.cgImageCreationFailed }
+        let contrastTexture = try imageContrastBooster.boostContrast(for: texture, factor: contrast) ?? texture
         
-        if let sharpened = try imageSharpener.sharpen(cgImage, sharpness: sharpness) {
-            outputCGImage = sharpened
+        if let sharpened = try imageSharpener.sharpen(contrastTexture, sharpness: sharpness), let image = getCGImage(from: sharpened) {
+            outputCGImage = image
         } else {
             outputCGImage = cgImage
         }

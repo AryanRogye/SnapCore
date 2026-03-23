@@ -36,11 +36,9 @@ class ImageContrastBooster {
     }
 
     public func boostContrast(
-        for image: CGImage,
+        for image: MTLTexture,
         factor: Float
-    ) throws -> CGImage? {
-        let texture = try MetalHelpers.getImageTexture(from: image)
-        
+    ) throws -> MTLTexture? {
         let width = image.width
         let height = image.height
         
@@ -67,7 +65,7 @@ class ImageContrastBooster {
         
         enc.setComputePipelineState(pso)
         // Index 0 is our input (read)
-        enc.setTexture(texture, index: 0)
+        enc.setTexture(image, index: 0)
         
         // Index 1 is our output (write)
         enc.setTexture(outTexture, index: 1)
@@ -85,13 +83,6 @@ class ImageContrastBooster {
         cmd.commit()
         cmd.waitUntilCompleted()
         
-        guard let ciImage = CIImage(mtlTexture: outTexture, options: [
-            .colorSpace: CGColorSpace(name: CGColorSpace.sRGB)!
-        ]) else { return nil }
-        let flipped = ciImage.transformed(by: CGAffineTransform(scaleX: 1, y: -1)
-            .translatedBy(x: 0, y: -ciImage.extent.height))
-        
-        let context = CIContext(mtlDevice: ctx.device)
-        return context.createCGImage(flipped, from: flipped.extent)
+        return outTexture
     }
 }

@@ -50,6 +50,9 @@ public final class PlaybackImageCoordinator {
     let imageProcessor = ImageProcessor()
     let imageContrastBooster = ImageContrastBooster()
     let imageSharpener = ImageSharpener()
+    let cursorSticher = CursorSticher()
+    
+    var cursorTexture: MTLTexture?
     
     init(recordingInfo: RecordingInfo) {
         self.recordingInfo = recordingInfo
@@ -57,7 +60,26 @@ public final class PlaybackImageCoordinator {
             kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA
         ]
         videoOutput = AVPlayerItemVideoOutput(pixelBufferAttributes: settings)
+        self.assignCursorImage()
         self.observeValues()
+    }
+    
+    public func assignCursorImage() {
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            
+            let scale = CursorSizeHelper.cursorScale()
+            let safeScale = max(1.0, CGFloat(scale))
+            if let cursor = CursorShape.makeCursorCGImage(
+                size: CGSize(width: safeScale * 16, height: safeScale * 16)
+            ) {
+                do {
+                    cursorTexture = try MetalHelpers.getImageTexture(from: cursor)
+                } catch {
+                    print("Error Creating Cursor Texture: \(error.localizedDescription)")
+                }
+            }
+        }
     }
     
     public func assign(to player: AVPlayer) {
@@ -117,7 +139,11 @@ extension PlaybackImageCoordinator {
                 guard let self else { return }
                 
                 if let originalCurrentFrame {
-                    processImage(cgImage: originalCurrentFrame)
+                    do {
+                        try processImage(cgImage: originalCurrentFrame)
+                    } catch {
+                        print("Error Processing Image in Observation: \(error.localizedDescription)")
+                    }
                 }
                 
                 observeValues()

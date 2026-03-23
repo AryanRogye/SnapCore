@@ -26,7 +26,7 @@ public final class RecordingCoordinator {
     /// Our "File Writer"
     let fileWriter: FileWriter
     
-    let recordingInfo = RecordingInfo()
+    public var recordingInfo = RecordingInfo()
     
     var mouseCoordinator = MouseCoordinator()
     
@@ -105,7 +105,7 @@ public final class RecordingCoordinator {
             
             recorder.startRecording(
                 scale: scale,
-                showsCursor: true,
+                showsCursor: !recordingInfo.isUsingCustomCursor,
                 capturesAudio: false,
                 fps: fps
             )
