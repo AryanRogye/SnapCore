@@ -15,6 +15,8 @@ public class CursorConfig {
     public var sizeWidth: CGFloat
     public var sizeHeight: CGFloat
     
+    public var roundness: CGFloat = 6
+    
     public var size: CGSize {
         get { CGSize(width: sizeWidth, height: sizeHeight) }
         set { sizeWidth = newValue.width; sizeHeight = newValue.height }
@@ -48,26 +50,6 @@ public class CursorConfig {
         self.lineWidth = lineWidth
         self.innerColorHex = innerColor
         self.outerColorHex = outerColor
-    }
-}
-private extension Color {
-    var hexString: String {
-        let nsColor = NSColor(self).usingColorSpace(.sRGB) ?? .black
-        let r = Int(nsColor.redComponent * 255)
-        let g = Int(nsColor.greenComponent * 255)
-        let b = Int(nsColor.blueComponent * 255)
-        return String(format: "#%02X%02X%02X", r, g, b)
-    }
-}
-private extension Color {
-    init(hex: String) {
-        let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
-        var int: UInt64 = 0
-        Scanner(string: hex).scanHexInt64(&int)
-        let r = Double((int >> 16) & 0xFF) / 255
-        let g = Double((int >> 8) & 0xFF) / 255
-        let b = Double(int & 0xFF) / 255
-        self.init(.sRGB, red: r, green: g, blue: b)
     }
 }
 
@@ -128,50 +110,97 @@ public struct CursorShape: Shape {
         let distanceFromCenter = rect.width * config.distanceFromCenterScale
         let distanceFromHorizontal = rect.width * config.distanceFromHorizontal
         let wingDistanceDown = rect.height * config.wingDistanceDown
+        let r = config.roundness
         
-        /// Top Center
-        path.move(to: CGPoint(
+        let topCenter = CGPoint(
             x: stemMiddleX,
             y: stemMinY
-        ))
-        
-        /// Bottom Left Point
-        path.addLine(to: CGPoint(
+        )
+        let bottomLeft = CGPoint(
             x: stemMinX + distanceFromHorizontal,
             y: (stemMaxY - distanceFromBottom) + wingDistanceDown
-        ))
-        
-        /// got to the center left with padding
-        path.addLine(to: CGPoint(
+        )
+        let centerInnerLeftTop = CGPoint(
             x: stemMiddleX - distanceFromCenter,
             y: stemMaxY - distanceFromBottom
-        ))
-        
-        /// Go all the way down
-        path.addLine(to: CGPoint(
+        )
+        let centerInnerLeftBottom = CGPoint(
             x: stemMiddleX - distanceFromCenter,
             y: stemMaxY
-        ))
-        
-        /// go right
-        path.addLine(
-            to: CGPoint(
-                x: stemMiddleX + distanceFromCenter,
-                y: stemMaxY
-            ))
-        
-        /// go back up
-        path.addLine(
-            to: CGPoint(
-                x: stemMiddleX + distanceFromCenter,
-                y: stemMaxY - distanceFromBottom
-            ))
-
-        /// To Right Point
-        path.addLine(to: CGPoint(
+        )
+        let centerInnerRightBottom = CGPoint(
+            x: stemMiddleX + distanceFromCenter,
+            y: stemMaxY
+        )
+        let centerInnerRightTop = CGPoint(
+            x: stemMiddleX + distanceFromCenter,
+            y: stemMaxY - distanceFromBottom
+        )
+        let bottomRight = CGPoint(
             x: stemMaxX - distanceFromHorizontal,
             y: (stemMaxY - distanceFromBottom) + wingDistanceDown
-        ))
+        )
+        
+        
+        // Helper: lerp between two points by a fixed distance `t` from `a` toward `b`
+        func approach(_ a: CGPoint, toward b: CGPoint, by t: CGFloat) -> CGPoint {
+            let dx = b.x - a.x, dy = b.y - a.y
+            let len = sqrt(dx*dx + dy*dy)
+            guard len > 0 else { return a }
+            let ratio = min(t / len, 0.5)
+            return CGPoint(x: a.x + dx * ratio, y: a.y + dy * ratio)
+        }
+        
+        // Rounded corner helper: arrive `r` before the corner, curve to `r` past it
+        func addRoundedCorner(to corner: CGPoint, next: CGPoint) {
+            let entry = approach(corner, toward: path.currentPoint ?? corner, by: r)
+            // move back toward entry — the previous segment should have stopped short
+            path.addLine(to: entry)
+            let exit = approach(corner, toward: next, by: r)
+            path.addQuadCurve(to: exit, control: corner)
+        }
+        
+        let corners: [CGPoint] = [
+            topCenter,
+            bottomLeft,
+            centerInnerLeftTop,
+            centerInnerLeftBottom,
+            centerInnerRightBottom,
+            centerInnerRightTop,
+            bottomRight
+        ]
+
+//        /// Top Center
+//        path.move(to: topCenter)
+//        
+//        /// Bottom Left Point
+//        path.addLine(to: bottomLeft)
+//        
+//        /// got to the center left with padding
+//        path.addLine(to: centerInnerLeftTop)
+//        
+//        /// Go all the way down
+//        path.addLine(to: centerInnerLeftBottom)
+//        
+//        /// go right
+//        path.addLine(to: centerInnerRightBottom)
+//        
+//        /// go back up
+//        path.addLine(to: centerInnerRightTop)
+//        
+//        /// To Right Point
+//        path.addLine(to: bottomRight)
+
+        path.move(to: approach(topCenter, toward: bottomRight, by: r))
+        
+        for i in 0..<corners.count {
+            let corner = corners[i]
+            let next   = corners[(i + 1) % corners.count]
+            let entry  = approach(corner, toward: corners[(i - 1 + corners.count) % corners.count], by: r)
+            let exit   = approach(corner, toward: next, by: r)
+            path.addLine(to: entry)
+            path.addQuadCurve(to: exit, control: corner)
+        }
         
         path.closeSubpath()
 
@@ -207,3 +236,25 @@ public struct CursorShape: Shape {
     .frame(width: 300, height: 300)
 }
 
+
+// MARK: - Color Extensions
+private extension Color {
+    var hexString: String {
+        let nsColor = NSColor(self).usingColorSpace(.sRGB) ?? .black
+        let r = Int(nsColor.redComponent * 255)
+        let g = Int(nsColor.greenComponent * 255)
+        let b = Int(nsColor.blueComponent * 255)
+        return String(format: "#%02X%02X%02X", r, g, b)
+    }
+}
+private extension Color {
+    init(hex: String) {
+        let hex = hex.trimmingCharacters(in: CharacterSet.alphanumerics.inverted)
+        var int: UInt64 = 0
+        Scanner(string: hex).scanHexInt64(&int)
+        let r = Double((int >> 16) & 0xFF) / 255
+        let g = Double((int >> 8) & 0xFF) / 255
+        let b = Double(int & 0xFF) / 255
+        self.init(.sRGB, red: r, green: g, blue: b)
+    }
+}
