@@ -63,6 +63,18 @@ public struct CursorShape: Shape {
     public static func makeCursorCGImage(
         config: CursorConfig,
     ) -> CGImage? {
+        let shadowPadding: CGFloat = 28
+        
+        let cursorSize = CGSize(
+            width: config.scale * config.size.width,
+            height: config.scale * config.size.height
+        )
+        
+        let paddedSize = CGSize(
+            width: cursorSize.width + shadowPadding * 2,
+            height: cursorSize.height + shadowPadding * 2
+        )
+
         let view = NSHostingView(
             rootView:
                 CursorShape(config: config)
@@ -76,14 +88,11 @@ public struct CursorShape: Shape {
                         ))
                 }
                 .rotationEffect(.degrees(-20))
+                .padding(shadowPadding)
         )
-        
-        let size : CGSize = CGSize(
-            width: config.scale * config.size.width,
-            height: config.scale * config.size.height
-        )
-        view.frame = CGRect(origin: .zero, size: size)
-        
+
+        view.frame = CGRect(origin: .zero, size: paddedSize)
+
         let rep = view
             .bitmapImageRepForCachingDisplay(in: view.bounds)
         
@@ -91,7 +100,7 @@ public struct CursorShape: Shape {
         
         view.cacheDisplay(in: view.bounds, to: rep)
         
-        let image = NSImage(size: size)
+        let image = NSImage(size: paddedSize)
         image.addRepresentation(rep)
         
         return image.cgImage(forProposedRect: nil, context: nil, hints: nil)
@@ -169,27 +178,6 @@ public struct CursorShape: Shape {
             centerInnerRightTop,
             bottomRight
         ]
-
-//        /// Top Center
-//        path.move(to: topCenter)
-//        
-//        /// Bottom Left Point
-//        path.addLine(to: bottomLeft)
-//        
-//        /// got to the center left with padding
-//        path.addLine(to: centerInnerLeftTop)
-//        
-//        /// Go all the way down
-//        path.addLine(to: centerInnerLeftBottom)
-//        
-//        /// go right
-//        path.addLine(to: centerInnerRightBottom)
-//        
-//        /// go back up
-//        path.addLine(to: centerInnerRightTop)
-//        
-//        /// To Right Point
-//        path.addLine(to: bottomRight)
 
         path.move(to: approach(topCenter, toward: bottomRight, by: r))
         

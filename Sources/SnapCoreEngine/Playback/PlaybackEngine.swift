@@ -16,7 +16,7 @@ public final class PlaybackEngine {
     private var isInPlayableArea: Bool {
         return progress >= start && progress <= end
     }
-
+    
     public var currentTime: Float64 {
         imageCoordinator.currentTime
     }
@@ -27,6 +27,14 @@ public final class PlaybackEngine {
     public var currentMouse: CurrentMouseInfo? {
         if isInPlayableArea {
             return imageCoordinator.currentMouse
+        } else {
+            return nil
+        }
+    }
+    
+    public var currentCursorMotionState: CursorMotionState? {
+        if isInPlayableArea {
+            return imageCoordinator.cursorMotionState
         } else {
             return nil
         }

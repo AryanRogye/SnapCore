@@ -15,6 +15,32 @@ private struct MousePosition {
     var y : Float
     var hotspotX: Float;
     var hotspotY: Float;
+    
+    var cursorShadowX: Float;
+    var cursorShadowY: Float;
+    var cursorShadowOpacity: Float;
+    
+    var cursorShadowSharpX: Float
+    var cursorShadowSharpY: Float
+    var cursorShadowSharpOpacity: Float
+}
+
+/// observable so we can view it nice in the ui
+@Observable
+public class CursorShadowConfig {
+    // outter shadow
+    public var cursorShadowX: CGFloat = 3.0;
+    public var cursorShadowY: CGFloat = 3.0;
+    public var cursorShadowOpacity: CGFloat = 0.35;
+    
+    // tight inner shadow
+    public var cursorShadowSharpX: CGFloat = 1.0
+    public var cursorShadowSharpY: CGFloat = 2.0
+    public var cursorShadowSharpOpacity: CGFloat = 0.30
+    
+    public init() {
+        
+    }
 }
 
 /// Function takes a base image and a cursor texture
@@ -43,7 +69,8 @@ public final class CursorSticher {
         _ cursor: MTLTexture,
         onto image: MTLTexture,
         at point: CGPoint,
-        screen: CGRect
+        screen: CGRect,
+        shadowConfig: CursorShadowConfig
     ) throws -> MTLTexture? {
         
         let width = image.width
@@ -89,8 +116,15 @@ public final class CursorSticher {
             x: Float(mappedPoint.x),
             y: Float(mappedPoint.y),
             hotspotX: Float(cursor.width) * 0.28,
-            hotspotY: Float(cursor.height) * 0.08
+            hotspotY: Float(cursor.height) * 0.08,
+            cursorShadowX: Float(shadowConfig.cursorShadowX),
+            cursorShadowY: Float(shadowConfig.cursorShadowY),
+            cursorShadowOpacity: Float(shadowConfig.cursorShadowOpacity),
+            cursorShadowSharpX: Float(shadowConfig.cursorShadowSharpX),
+            cursorShadowSharpY: Float(shadowConfig.cursorShadowSharpY),
+            cursorShadowSharpOpacity: Float(shadowConfig.cursorShadowSharpOpacity)
         )
+        
         enc.setBytes(
             &uniforms,
             length: MemoryLayout<MousePosition>.stride,

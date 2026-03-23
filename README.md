@@ -135,7 +135,7 @@ Task { @MainActor in
         scale: .high,
         showsCursor: true,
         capturesAudio: true,
-        fps: .fps60
+        fps: .fps120
     )
 
     // Later, stop and clean up
@@ -191,7 +191,7 @@ recorder.onScreenFrame = { [weak self] sample in
   - `onScreenFrame: ((SendableSampleBuffer) async -> Void)?`: called for video frames.
   - `onAudioFrame: ((SendableSampleBuffer) async -> Void)?`: called for audio frames when enabled.
   - `hasScreenRecordPermission() -> Bool`: returns current Screen Recording authorization state.
-  - `startRecording(scale: VideoScale = .normal, showsCursor: Bool = true, capturesAudio: Bool = true, fps: FPS = .fps60)`: presents the system picker and begins streaming frames after selection.
+  - `startRecording(scale: VideoScale = .normal, showsCursor: Bool = true, capturesAudio: Bool = true, fps: FPS = .fps120)`: presents the system picker and begins streaming frames after selection.
   - `stopRecording() async`: stops capture and releases resources.
   - `getCachedFilter() -> SCContentFilter?`: returns the last display filter selected from the system picker.
   - `getLastScaleFactorUsed() -> CGFloat`: returns the backing scale factor used when computing native resolution.
@@ -275,6 +275,14 @@ struct ContentView: View {
                     Text("8K").tag(VideoScale.ultra)
                     Text("Native").tag(VideoScale.native)
                 }
+
+                Picker("FPS", selection: $recorder.coordinator.fps) {
+                    ForEach(FPS.allCases, id: \.self) { fps in
+                        Text(fps.rawValue).tag(fps)
+                    }
+                }
+
+                Toggle("Custom Cursor", isOn: $recorder.coordinator.recordingInfo.isUsingCustomCursor)
             }
         }
     }
@@ -287,6 +295,8 @@ struct ContentView: View {
     }
 }
 ```
+
+`Recorder` is the main high-level entry point for capture in `SnapCoreEngine`. It owns a `RecordingCoordinator` and exposes a shared `RecordingInfo` instance that feeds playback and export.
 
 ### Engine playback example
 
@@ -304,6 +314,7 @@ final class EditingViewModel {
 
     var totalDuration: Float64 { playbackEngine.totalDuration }
     var currentMouse: CurrentMouseInfo? { playbackEngine.currentMouse }
+    var currentCursorMotionState: CursorMotionState? { playbackEngine.currentCursorMotionState }
     var currentTime: Float64 { playbackEngine.currentTime }
     var progress: Double { playbackEngine.progress }
 
@@ -329,6 +340,39 @@ final class EditingViewModel {
     }
 }
 ```
+
+### Engine cursor customization example
+
+`PlaybackImageCoordinator` exposes live cursor styling models. The `TestingSR` app binds sliders directly to both `cursorConfig` and `cursorShadowConfig`, so changes are reflected in playback without rebuilding the engine:
+
+```swift
+import SwiftUI
+import SnapCoreEngine
+
+struct CursorControls: View {
+    @Bindable var vm: EditingViewModel
+
+    var body: some View {
+        VStack {
+            Slider(value: $vm.playbackEngine.imageCoordinator.cursorConfig.scale, in: 1.0...8.0)
+            Slider(value: $vm.playbackEngine.imageCoordinator.cursorConfig.lineWidth, in: 1.0...8.0)
+            Slider(value: $vm.playbackEngine.imageCoordinator.cursorConfig.roundness, in: 1.0...10.0)
+            Slider(value: $vm.playbackEngine.imageCoordinator.cursorConfig.distanceFromBottomScale, in: 0.1...0.6)
+            Slider(value: $vm.playbackEngine.imageCoordinator.cursorConfig.distanceFromCenterScale, in: 0.01...0.25)
+            Slider(value: $vm.playbackEngine.imageCoordinator.cursorConfig.distanceFromHorizontal, in: 0.05...0.4)
+            Slider(value: $vm.playbackEngine.imageCoordinator.cursorConfig.wingDistanceDown, in: 0.0...0.2)
+            Slider(value: $vm.playbackEngine.imageCoordinator.cursorShadowConfig.cursorShadowX, in: 0.0...10.0)
+            Slider(value: $vm.playbackEngine.imageCoordinator.cursorShadowConfig.cursorShadowY, in: 0.0...10.0)
+            Slider(value: $vm.playbackEngine.imageCoordinator.cursorShadowConfig.cursorShadowOpacity, in: 0.0...10.0)
+            Slider(value: $vm.playbackEngine.imageCoordinator.cursorShadowConfig.cursorShadowSharpX, in: 0.0...10.0)
+            Slider(value: $vm.playbackEngine.imageCoordinator.cursorShadowConfig.cursorShadowSharpY, in: 0.0...10.0)
+            Slider(value: $vm.playbackEngine.imageCoordinator.cursorShadowConfig.cursorShadowSharpOpacity, in: 0.0...10.0)
+        }
+    }
+}
+```
+
+For playback UI overlays, `PlaybackEngine.currentCursorMotionState` exposes the current cursor delta and angle state alongside `currentMouse`.
 
 ### Engine export example
 
@@ -387,7 +431,11 @@ struct ExportButton: View {
 - Actors: `ScreenRecordService` is `@MainActor`, and frame handlers are async callbacks awaited by the service. Keep handlers lightweight and offload heavy work if needed.
 - Picker: The system content picker is limited to single-display selection in the current build. After a successful selection, the chosen filter is cached and reused for later `startRecording()` calls on the same service instance.
 - Audio: When `capturesAudio` is `true`, audio sample buffers are delivered. You are responsible for mixing/muxing.
-- Frame rate: pass `fps` to `startRecording()` to choose `30`, `60`, or `120` FPS. The default is `.fps60`.
+- Frame rate: pass `fps` to `startRecording()` to choose `30`, `60`, or `120` FPS. The default is `.fps120`.
 - File output: call `prepareRecordingOutput(url:)` before `startRecording()` if you want ScreenCaptureKit to write a `.mov`, `.mp4`, or `.m4v` file directly.
 - Metal: `SnapCoreEngine` compiles its bundled shader sources internally from package resources. Consumer apps do not need extra Metal-specific setup beyond running on a Metal-capable Mac.
+- Recording models: `RecordingInfo` stores the captured file URL, preview image, frame metadata, display metadata, and whether a custom cursor should be rendered during playback/export.
+- Cursor rendering: `CursorConfig` is public and can be stored with SwiftData, which is how `TestingSR` saves and reloads cursor presets.
+- Cursor shadows: `PlaybackImageCoordinator.cursorShadowConfig` controls the rendered cursor shadow offsets and opacities used during playback/export compositing.
+- Cursor motion: `PlaybackEngine.currentCursorMotionState` exposes cursor movement deltas for editor UI or future motion-driven cursor effects.
 - Cleanup: Always call `stopRecording()` when done to stop the stream, clear any pending recording output URL, and deactivate the picker.

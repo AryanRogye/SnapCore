@@ -9,14 +9,6 @@ import AppKit
 import AVFoundation
 import CoreImage
 
-public struct CurrentMouseInfo: Equatable {
-    public var point: CGPoint?
-    public var isLeftClick: Bool
-    public var isRightClick: Bool
-}
-
-/// boosting contrast
-
 @Observable
 public final class PlaybackImageCoordinator {
     let recordingInfo: RecordingInfo
@@ -33,6 +25,8 @@ public final class PlaybackImageCoordinator {
     internal let ciContext = CIContext()
     private var displayLink: CADisplayLink?
     var currentMouse: CurrentMouseInfo?
+    var cursorMotionState = CursorMotionState()
+    public var cursorShadowConfig = CursorShadowConfig()
     
     var currentTime: Float64 = 0
     var progress: Double = 0
@@ -121,6 +115,15 @@ public final class PlaybackImageCoordinator {
         progress = duration > 0 ? elapsed / duration : 0
         
         if let f = getFrameInfo(time) {
+            if let point = f.mouse {
+                if let previous = cursorMotionState.previousPoint {
+                    self.cursorMotionState.dx = CGFloat(point.x - previous.x)
+                    self.cursorMotionState.dy = CGFloat(point.y - previous.y)
+                    // update target angle from dx
+                    // smooth currentAngle
+                }
+                self.cursorMotionState.previousPoint = point
+            }
             self.currentMouse = CurrentMouseInfo(
                 point: f.mouse,
                 isLeftClick: f.leftMouseDown,
@@ -149,6 +152,15 @@ extension PlaybackImageCoordinator {
             _ = self.cursorConfig.distanceFromCenterScale
             _ = self.cursorConfig.distanceFromHorizontal
             _ = self.cursorConfig.wingDistanceDown
+            _ = self.cursorConfig.roundness
+            
+            /// Shadow Configs
+            _ = self.cursorShadowConfig.cursorShadowOpacity
+            _ = self.cursorShadowConfig.cursorShadowSharpOpacity
+            _ = self.cursorShadowConfig.cursorShadowX
+            _ = self.cursorShadowConfig.cursorShadowY
+            _ = self.cursorShadowConfig.cursorShadowSharpX
+            _ = self.cursorShadowConfig.cursorShadowSharpY
         } onChange: {
             DispatchQueue.main.async { [weak self] in
                 guard let self else { return }

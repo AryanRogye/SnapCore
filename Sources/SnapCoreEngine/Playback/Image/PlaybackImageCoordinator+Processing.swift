@@ -56,7 +56,8 @@ extension PlaybackImageCoordinator {
                 cursorTexture,
                 onto: image,
                 at: point,
-                screen: frame
+                screen: frame,
+                shadowConfig: cursorShadowConfig
             )
         } catch {
             print("Error Applying Cursor")
