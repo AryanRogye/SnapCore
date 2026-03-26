@@ -7,7 +7,7 @@
 
 import Foundation
 
-public enum VideoScale: CaseIterable {
+public enum VideoScale: CaseIterable, Codable {
     case normal
     case medium
     case high
