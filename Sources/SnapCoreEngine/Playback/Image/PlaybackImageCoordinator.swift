@@ -5,6 +5,7 @@
 //  Created by Aryan Rogye on 3/18/26.
 //
 
+#if os(macOS)
 import AppKit
 import AVFoundation
 import CoreImage
@@ -27,6 +28,8 @@ public final class PlaybackImageCoordinator {
     var currentMouse: CurrentMouseInfo?
     var cursorMotionState = CursorMotionState()
     public var cursorShadowConfig = CursorShadowConfig()
+    
+    public var cursorMotionSensitivity: CGFloat = 0.5
     
     var currentTime: Float64 = 0
     var progress: Double = 0
@@ -119,8 +122,10 @@ public final class PlaybackImageCoordinator {
                 if let previous = cursorMotionState.previousPoint {
                     self.cursorMotionState.dx = CGFloat(point.x - previous.x)
                     self.cursorMotionState.dy = CGFloat(point.y - previous.y)
-                    // update target angle from dx
-                    // smooth currentAngle
+                    // compute target angle from dx
+                    let targetAngle = Float(cursorMotionState.dx) * Float(cursorMotionSensitivity)
+                    let current = Float(cursorMotionState.currentAngle)
+                    cursorMotionState.currentAngle = CGFloat(current + (targetAngle - current) * 0.2)
                 }
                 self.cursorMotionState.previousPoint = point
             }
@@ -203,3 +208,4 @@ extension PlaybackImageCoordinator {
         }
     }
 }
+#endif

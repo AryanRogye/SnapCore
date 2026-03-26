@@ -5,6 +5,7 @@
 //  Created by Aryan Rogye on 3/17/26.
 //
 
+#if os(macOS)
 import AVFoundation
 import CoreImage
 import AppKit
@@ -62,15 +63,20 @@ public final class Recorder {
     
     public var isStopping = false
     
-    public func toggle() async throws {
+    public func toggle(
+        with config: RecordingConfig = .recording
+    ) async throws {
         if isRecording {
             isStopping = true
             try await coordinator.stopRecording()
             isRecording = false
             isStopping = false
         } else {
-            await coordinator.startRecording()
+            await coordinator.startRecording(
+                with: config
+            )
             isRecording = true
         }
     }
 }
+#endif

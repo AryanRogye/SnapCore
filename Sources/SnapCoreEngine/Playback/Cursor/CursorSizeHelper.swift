@@ -7,6 +7,7 @@
 
 import Foundation
 
+#if os(macOS)
 typealias CGSConnectionID = UInt32
 typealias CGSWindowCount  = UInt32
 typealias CGSSpaceID      = UInt64
@@ -25,3 +26,4 @@ public final class CursorSizeHelper {
         return value
     }
 }
+#endif

@@ -7,6 +7,7 @@
 
 import AVFoundation
 
+#if os(macOS)
 extension PlaybackImageCoordinator {
     @MainActor
     internal func processImage(pixelBuffer: CVPixelBuffer) {
@@ -57,7 +58,8 @@ extension PlaybackImageCoordinator {
                 onto: image,
                 at: point,
                 screen: frame,
-                shadowConfig: cursorShadowConfig
+                shadowConfig: cursorShadowConfig,
+                cursorMotionState: cursorMotionState
             )
         } catch {
             print("Error Applying Cursor")
@@ -101,3 +103,4 @@ extension PlaybackImageCoordinator {
         }
     }
 }
+#endif

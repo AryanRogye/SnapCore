@@ -5,6 +5,7 @@
 //  Created by Aryan Rogye on 3/19/26.
 //
 
+#if os(macOS)
 import Accelerate
 import AppKit
 
@@ -130,3 +131,4 @@ extension ImageColorProcessor {
         return NSColor(red: adjustedRed, green: adjustedGreen, blue: adjustedBlue, alpha: alpha)
     }
 }
+#endif

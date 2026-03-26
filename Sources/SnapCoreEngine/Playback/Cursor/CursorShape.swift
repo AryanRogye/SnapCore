@@ -5,6 +5,7 @@
 //  Created by Aryan Rogye on 3/22/26.
 //
 
+#if os(macOS)
 import SwiftUI
 import SwiftData
 
@@ -246,3 +247,4 @@ private extension Color {
         self.init(.sRGB, red: r, green: g, blue: b)
     }
 }
+#endif

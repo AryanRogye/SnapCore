@@ -5,11 +5,16 @@
 //  Created by Aryan Rogye on 3/18/26.
 //
 
+#if os(macOS)
 import AppKit
 import CoreMedia
 import ScreenCaptureKit
 import SnapCore
-import SnapCore
+
+public enum RecordingConfig {
+    case recording
+    case livestream(OutputStream)
+}
 
 @Observable
 @MainActor
@@ -24,7 +29,11 @@ public final class RecordingCoordinator {
     public var lastBackingScaleFactorUsed: CGFloat = 2.0
 
     /// Our "File Writer"
-    let fileWriter: FileWriter
+    let recordingFileWriter: RecordingFileWriter
+    let liveFileWriter : LiveFileWriter
+    
+    var lastConfig: RecordingConfig = .recording
+    var lastFileWriter : FileWriter? = nil
     
     public var recordingInfo = RecordingInfo()
     
@@ -36,7 +45,8 @@ public final class RecordingCoordinator {
     public init() {
         let recorder = ScreenRecordService()
         self.recorder = recorder
-        self.fileWriter = FileWriter(recorder: recorder)
+        self.recordingFileWriter = RecordingFileWriter(recorder: recorder)
+        self.liveFileWriter = LiveFileWriter()
     }
     
     var recordingActivity: NSObjectProtocol?
@@ -44,8 +54,22 @@ public final class RecordingCoordinator {
     private var frameCount = 0
     private let processEvery = 20
     
-    public func startRecording() async {
+    public func startRecording(
+        with config: RecordingConfig = .recording
+    ) async {
         let temp = getTemp()
+        
+        await liveFileWriter.clearOutputStream()
+        lastConfig = config
+        let fileWriter: FileWriter = await {
+            switch config {
+            case .recording:  return self.recordingFileWriter
+            case .livestream(let stream):
+                await self.liveFileWriter.assignOutputStream(stream)
+                return self.liveFileWriter
+            }
+        }()
+        lastFileWriter = fileWriter
         await fileWriter.start(outputURL: temp)
         
         self.recordingInfo.clear()
@@ -61,7 +85,7 @@ public final class RecordingCoordinator {
                 do {
                     guard let info = SampleValidator.isValidSample(sample) else { return }
                     
-                    try await self.fileWriter.write(
+                    try await fileWriter.write(
                         sample: sample,
                         info: info,
                         onFrameWritten: { [weak self] in
@@ -142,13 +166,15 @@ public final class RecordingCoordinator {
     
     private func stopFileWriter() async throws {
         do {
-            try await fileWriter.stop()
+            try await lastFileWriter?.stop()
         } catch let e as FileWriterError {
             switch e {
             case .errorCreatingWriter:
                 print("Error Creating Writer")
             case .errorWritingToFile(let error):
                 print(error)
+            case .noOutputStream:
+                print("No Output Stream with Livestream")
             }
         } catch {
             print("Error: \(error)")
@@ -187,3 +213,4 @@ public final class RecordingCoordinator {
         return cg
     }
 }
+#endif

@@ -7,6 +7,7 @@
 
 import CoreImage
 
+#if os(macOS)
 extension PlaybackImageCoordinator {
     
     private static let ciContext = CIContext(mtlDevice: MetalContext.shared.device)
@@ -87,3 +88,4 @@ extension PlaybackImageCoordinator {
         )
     }
 }
+#endif

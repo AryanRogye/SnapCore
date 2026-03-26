@@ -8,6 +8,7 @@
 import CoreImage
 import CoreMedia
 
+#if os(macOS)
 extension PlaybackImageCoordinator {
     
     /// Function gets the frame info from the time
@@ -38,3 +39,4 @@ extension PlaybackImageCoordinator {
         return ciContext.createCGImage(ciImage, from: ciImage.extent)
     }
 }
+#endif

@@ -5,6 +5,7 @@
 //  Created by Aryan Rogye on 3/19/26.
 //
 
+#if os(macOS)
 import AVFoundation
 import AppKit
 
@@ -350,3 +351,4 @@ public final class Exporter {
         return context.createCGImage(ciImage, from: ciImage.extent)
     }
 }
+#endif

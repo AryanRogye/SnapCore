@@ -5,6 +5,7 @@
 //  Created by Aryan Rogye on 3/18/26.
 //
 
+#if os(macOS)
 import AppKit
 import CoreMedia
 import SwiftUI
@@ -107,3 +108,4 @@ public final class PlaybackEngine {
         imageCoordinator.stopRendering()
     }
 }
+#endif

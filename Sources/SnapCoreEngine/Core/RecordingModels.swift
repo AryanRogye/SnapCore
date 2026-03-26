@@ -5,6 +5,7 @@
 //  Created by Aryan Rogye on 3/18/26.
 //
 
+#if os(macOS)
 import AVFoundation
 import AppKit
 import ScreenCaptureKit
@@ -68,3 +69,4 @@ public struct FrameInfo {
         self.rightMouseDown = rightMouseDown
     }
 }
+#endif

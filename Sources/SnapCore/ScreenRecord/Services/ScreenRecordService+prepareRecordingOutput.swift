@@ -7,9 +7,11 @@
 
 import Foundation
 
+#if os(macOS)
 extension ScreenRecordService {
     public func prepareRecordingOutput(url: URL) {
         pendingRecordingOutputURL = url
         recordingOutputErrorMessage = nil
     }
 }
+#endif

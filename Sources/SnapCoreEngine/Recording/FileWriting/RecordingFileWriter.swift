@@ -1,19 +1,15 @@
 //
-//  FileWriter.swift
+//  RecordingFileWriter.swift
 //  TestingSR
 //
 //  Created by Aryan Rogye on 3/18/26.
 //
 
+#if os(macOS)
 import AVFoundation
 import SnapCore
 
-enum FileWriterError: Error {
-    case errorCreatingWriter
-    case errorWritingToFile(String)
-}
-
-actor FileWriter {
+actor RecordingFileWriter: FileWriter {
     
     let recorder: ScreenRecordProviding
     var outputURL: URL? = nil
@@ -75,3 +71,4 @@ actor FileWriter {
     }
     
 }
+#endif

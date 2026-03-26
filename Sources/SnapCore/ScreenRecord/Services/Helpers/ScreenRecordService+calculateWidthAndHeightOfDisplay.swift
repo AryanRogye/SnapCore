@@ -4,7 +4,7 @@
 //
 //  Created by Aryan Rogye on 3/22/26.
 //
-
+#if os(macOS)
 import ScreenCaptureKit
 
 extension ScreenRecordService {
@@ -40,3 +40,4 @@ extension ScreenRecordService {
         }
     }
 }
+#endif

@@ -5,6 +5,7 @@
 //  Created by Aryan Rogye on 3/19/26.
 //
 
+#if os(macOS)
 import AVFoundation
 import SnapCore
 
@@ -60,3 +61,4 @@ final class SampleValidator {
         return CMTimeCompare(presentationTime, lastPTS) > 0
     }
 }
+#endif

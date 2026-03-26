@@ -5,6 +5,7 @@
 //  Created by Aryan Rogye on 3/18/26.
 //
 
+#if os(macOS)
 import AVFoundation
 
 @Observable
@@ -57,3 +58,4 @@ public final class PlaybackPlayerCoordinator {
         player.seek(to: time, toleranceBefore: .zero, toleranceAfter: CMTime(value: 1, timescale: 60))
     }
 }
+#endif

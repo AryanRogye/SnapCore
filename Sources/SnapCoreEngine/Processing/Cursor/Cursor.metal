@@ -21,6 +21,10 @@ struct MousePosition {
     float cursorShadowSharpX;
     float cursorShadowSharpY;
     float cursorShadowSharpOpacity;
+    
+    float currentAngle;
+    float dx;
+    float dy;
 };
 
 // Soft outer shadow — large gaussian (sigma=6, radius=12)
@@ -90,36 +94,62 @@ kernel void stitchCursor(
                              int(outTexture.get_height() - mouse.y - mouse.hotspotY)
                              );
     
-    int2 softShadowOrigin = cursorOrigin + int2(int(mouse.cursorShadowX), int(mouse.cursorShadowY));
+    int2 softShadowOrigin  = cursorOrigin + int2(int(mouse.cursorShadowX),      int(mouse.cursorShadowY));
     int2 sharpShadowOrigin = cursorOrigin + int2(int(mouse.cursorShadowSharpX), int(mouse.cursorShadowSharpY));
     
-    int2 softLocal  = int2(gid) - softShadowOrigin;
-    int2 sharpLocal = int2(gid) - sharpShadowOrigin;
-    int2 local      = int2(gid) - cursorOrigin;
-    
     float4 finalColor = imageTexture.read(gid);
-    const float3 shadowColor = float3(0.0, 0.0, 0.05); // slight blue tint like Apple
+    const float3 shadowColor = float3(0.0, 0.0, 0.05);
+    
+    // shared rotation
+    float angleRad = mouse.currentAngle * (M_PI_F / 180.0);
+    float cosA = cos(angleRad);
+    float sinA = sin(angleRad);
+    float2 center = float2(float(cursorWidth) * 0.5, float(cursorHeight) * 0.5);
+    
+    // rotated soft shadow local
+    float2 softOffset   = float2(gid) - float2(softShadowOrigin);
+    float2 softCentered = softOffset - center;
+    int2 rotatedSoftLocal = int2(float2(
+                                        cosA * softCentered.x + sinA * softCentered.y,
+                                        -sinA * softCentered.x + cosA * softCentered.y
+                                        ) + center);
+    
+    // rotated sharp shadow local
+    float2 sharpOffset   = float2(gid) - float2(sharpShadowOrigin);
+    float2 sharpCentered = sharpOffset - center;
+    int2 rotatedSharpLocal = int2(float2(
+                                         cosA * sharpCentered.x + sinA * sharpCentered.y,
+                                         -sinA * sharpCentered.x + cosA * sharpCentered.y
+                                         ) + center);
+    
+    // rotated cursor local
+    float2 cursorOffset   = float2(gid) - float2(cursorOrigin);
+    float2 cursorCentered = cursorOffset - center;
+    int2 rotatedLocal = int2(float2(
+                                    cosA * cursorCentered.x + sinA * cursorCentered.y,
+                                    -sinA * cursorCentered.x + cosA * cursorCentered.y
+                                    ) + center);
     
     // Pass 1: soft outer shadow
-    if (softLocal.x >= 0 && softLocal.y >= 0 &&
-        softLocal.x < int(cursorWidth) && softLocal.y < int(cursorHeight)) {
-        float a = sampleShadowAlpha(cursorTexture, softLocal) * mouse.cursorShadowOpacity;
+    if (rotatedSoftLocal.x >= 0 && rotatedSoftLocal.y >= 0 &&
+        rotatedSoftLocal.x < int(cursorWidth) && rotatedSoftLocal.y < int(cursorHeight)) {
+        float a = sampleShadowAlpha(cursorTexture, rotatedSoftLocal) * mouse.cursorShadowOpacity;
         finalColor.rgb = shadowColor * a + finalColor.rgb * (1.0 - a);
         finalColor.a   = a + finalColor.a * (1.0 - a);
     }
     
     // Pass 2: tight inner shadow
-    if (sharpLocal.x >= 0 && sharpLocal.y >= 0 &&
-        sharpLocal.x < int(cursorWidth) && sharpLocal.y < int(cursorHeight)) {
-        float a = sampleShadowAlphaSharp(cursorTexture, sharpLocal) * mouse.cursorShadowSharpOpacity;
+    if (rotatedSharpLocal.x >= 0 && rotatedSharpLocal.y >= 0 &&
+        rotatedSharpLocal.x < int(cursorWidth) && rotatedSharpLocal.y < int(cursorHeight)) {
+        float a = sampleShadowAlphaSharp(cursorTexture, rotatedSharpLocal) * mouse.cursorShadowSharpOpacity;
         finalColor.rgb = shadowColor * a + finalColor.rgb * (1.0 - a);
         finalColor.a   = a + finalColor.a * (1.0 - a);
     }
     
     // Pass 3: cursor on top
-    if (local.x >= 0 && local.y >= 0 &&
-        local.x < int(cursorWidth) && local.y < int(cursorHeight)) {
-        float4 cursorColor = cursorTexture.read(uint2(local));
+    if (rotatedLocal.x >= 0 && rotatedLocal.y >= 0 &&
+        rotatedLocal.x < int(cursorWidth) && rotatedLocal.y < int(cursorHeight)) {
+        float4 cursorColor = cursorTexture.read(uint2(rotatedLocal));
         finalColor.rgb = cursorColor.rgb * cursorColor.a + finalColor.rgb * (1.0 - cursorColor.a);
         finalColor.a   = cursorColor.a + finalColor.a * (1.0 - cursorColor.a);
     }

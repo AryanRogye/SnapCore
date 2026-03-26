@@ -5,6 +5,7 @@
 //  Created by Aryan Rogye on 3/22/26.
 //
 
+#if os(macOS)
 import Metal
 import MetalKit
 import Foundation
@@ -23,6 +24,10 @@ private struct MousePosition {
     var cursorShadowSharpX: Float
     var cursorShadowSharpY: Float
     var cursorShadowSharpOpacity: Float
+    
+    var currentAngle: Float
+    var dx: Float
+    var dy: Float
 }
 
 /// observable so we can view it nice in the ui
@@ -70,7 +75,8 @@ public final class CursorSticher {
         onto image: MTLTexture,
         at point: CGPoint,
         screen: CGRect,
-        shadowConfig: CursorShadowConfig
+        shadowConfig: CursorShadowConfig,
+        cursorMotionState: CursorMotionState
     ) throws -> MTLTexture? {
         
         let width = image.width
@@ -122,7 +128,10 @@ public final class CursorSticher {
             cursorShadowOpacity: Float(shadowConfig.cursorShadowOpacity),
             cursorShadowSharpX: Float(shadowConfig.cursorShadowSharpX),
             cursorShadowSharpY: Float(shadowConfig.cursorShadowSharpY),
-            cursorShadowSharpOpacity: Float(shadowConfig.cursorShadowSharpOpacity)
+            cursorShadowSharpOpacity: Float(shadowConfig.cursorShadowSharpOpacity),
+            currentAngle: Float(cursorMotionState.currentAngle),
+            dx: Float(cursorMotionState.dx),
+            dy: Float(cursorMotionState.dy),
         )
         
         enc.setBytes(
@@ -144,3 +153,4 @@ public final class CursorSticher {
         return outTexture
     }
 }
+#endif

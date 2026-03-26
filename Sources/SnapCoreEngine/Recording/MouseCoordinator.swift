@@ -5,6 +5,7 @@
 //  Created by Aryan Rogye on 3/19/26.
 //
 
+#if os(macOS)
 import AppKit
 
 @Observable
@@ -69,3 +70,4 @@ final class MouseCoordinator {
         }
     }
 }
+#endif
