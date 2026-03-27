@@ -19,12 +19,15 @@ extension PlaybackImageCoordinator {
         }
     }
     
+    /// original → lanczos → contrast → sharpness → cursor
     @MainActor
     internal func processImage(cgImage: CGImage) throws {
         let original = cgImage
         guard let originalTexture = try MetalHelpers.getImageTexture(from: original) else { return }
         
-        let contrasted = getContrastedImage(originalTexture)
+        let lanczosed = getLanczosUpscaled(originalTexture)
+        let baseForContrast = lanczosed ?? originalTexture
+        let contrasted = getContrastedImage(baseForContrast)
         let baseForSharpness = contrasted ?? originalTexture
         let sharpened = getSharpenedImage(baseForSharpness)
         let baseForCursor = sharpened ?? baseForSharpness
@@ -32,6 +35,7 @@ extension PlaybackImageCoordinator {
         
         updateDisplayedFrames(
             original: originalTexture,
+            lanczosed: lanczosed,
             contrasted: contrasted,
             sharpened: sharpened,
             baseForSharpness: baseForSharpness,
@@ -63,6 +67,29 @@ extension PlaybackImageCoordinator {
             )
         } catch {
             print("Error Applying Cursor")
+            return nil
+        }
+    }
+    
+    /**
+     * Function Checks to make sure that we're adjusting the Lanczos upscale if we're not we return nil
+     * or else we try to get it
+     */
+    private func getLanczosUpscaled(
+        _ image: MTLTexture
+    ) -> MTLTexture? {
+        guard isAdjustingLanczosScale else {
+            return nil
+        }
+        do {
+            return try lanczosUpscaler.upscale(
+                image,
+                lanczosScale: Float(lanczosScale),
+                kernelSize: Int(kernelSize)
+                
+            )
+        } catch {
+            print("Error applying Lanczos Upscale: \(error)")
             return nil
         }
     }

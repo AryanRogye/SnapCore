@@ -5,7 +5,6 @@
 //  Created by Aryan Rogye on 3/22/26.
 //
 
-#if os(macOS)
 import Metal
 import MetalKit
 import Foundation
@@ -50,12 +49,12 @@ public class CursorShadowConfig {
 
 /// Function takes a base image and a cursor texture
 /// and stiches it onto it
-public final class CursorSticher {
+public final class CursorSticher: MetalFilter {
     
     let ctx : MetalContext = .shared
     
     private var psoCursor: MTLComputePipelineState!
-    private var queue: MTLCommandQueue!
+    internal var queue: MTLCommandQueue!
     private var uniformBuf: MTLBuffer!
     
     public init() {
@@ -78,45 +77,15 @@ public final class CursorSticher {
         shadowConfig: CursorShadowConfig,
         cursorMotionState: CursorMotionState
     ) throws -> MTLTexture? {
-        
-        let width = image.width
-        let height = image.height
-        
-        let descriptor = MTLTextureDescriptor.texture2DDescriptor(
-            pixelFormat: .rgba8Unorm, // Standard 8-bit color
-            width: width,
-            height: height,
-            mipmapped: false
-        )
-        
-        descriptor.usage = [.shaderWrite, .shaderRead]
-        
-        guard let outTexture = ctx.device.makeTexture(
-            descriptor: descriptor) else {
-            return nil
-        }
-        
         guard let pso = psoCursor,
-              let cmd = queue.makeCommandBuffer(),
-              let enc = cmd.makeComputeCommandEncoder() else {
-            return nil
-        }
+              let out = makeOutputTexture(matching: image) else { return nil }
         
         let scaleX = CGFloat(image.width) / screen.width
         let scaleY = CGFloat(image.height) / screen.height
-        
         let mappedPoint = CGPoint(
             x: (point.x - screen.minX) * scaleX,
             y: (point.y - screen.minY) * scaleY
         )
-        
-        enc.setComputePipelineState(pso)
-        // Index 0 is our image texture input (read)
-        enc.setTexture(image, index: 0)
-        // Index 1 is our cursor texture (read)
-        enc.setTexture(cursor, index: 1)
-        // Index 2 is our outTexture
-        enc.setTexture(outTexture, index: 2)
         
         var uniforms = MousePosition(
             x: Float(mappedPoint.x),
@@ -131,26 +100,13 @@ public final class CursorSticher {
             cursorShadowSharpOpacity: Float(shadowConfig.cursorShadowSharpOpacity),
             currentAngle: Float(cursorMotionState.currentAngle),
             dx: Float(cursorMotionState.dx),
-            dy: Float(cursorMotionState.dy),
+            dy: Float(cursorMotionState.dy)
         )
         
-        enc.setBytes(
-            &uniforms,
-            length: MemoryLayout<MousePosition>.stride,
-            index: 0
-        )
-        
-        let w = pso.threadExecutionWidth
-        let h = pso.maxTotalThreadsPerThreadgroup / w
-        let threadgroupSize = MTLSize(width: w, height: h, depth: 1)
-        let gridSize = MTLSize(width: image.width, height: image.height, depth: 1)
-        enc.dispatchThreads(gridSize, threadsPerThreadgroup: threadgroupSize)
-        enc.endEncoding()
-        
-        cmd.commit()
-        cmd.waitUntilCompleted()
-
-        return outTexture
+        return dispatch(pso: pso, input: image, output: out, uniforms: &uniforms) { enc in
+            enc.setTexture(image, index: 0)
+            enc.setTexture(cursor, index: 1)
+            enc.setTexture(out, index: 2)
+        }
     }
 }
-#endif

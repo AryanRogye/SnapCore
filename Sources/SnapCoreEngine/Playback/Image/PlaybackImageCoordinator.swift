@@ -19,6 +19,7 @@ public final class PlaybackImageCoordinator {
     public var originalCurrentFrame: CGImage?
     public var currentSharpenedFrame: CGImage?
     public var currentContrastedFrame: CGImage?
+    public var currentLanczosFrame: CGImage?
     public var currentFrameColor: NSColor?
     
     private var player: AVPlayer?
@@ -44,6 +45,12 @@ public final class PlaybackImageCoordinator {
     public var contrast: CGFloat = 1.0
     public var contrastSideBySide: Bool = false
     
+    /// Lanczos
+    public var isAdjustingLanczosScale = false
+    public var lanczosScale: CGFloat = 1.0
+    public var kernelSize: CGFloat = 3.0
+    public var lanczosSideBySide: Bool = false
+    
     /// Cursor
     public var cursorConfig = CursorConfig(
         size: CGSize(width: 16, height: 16),
@@ -53,6 +60,7 @@ public final class PlaybackImageCoordinator {
     let imageColorProcessor = ImageColorProcessor()
     let imageContrastBooster = ImageContrastBooster()
     let imageSharpener = ImageSharpener()
+    let lanczosUpscaler = LanczosUpscaler()
     let cursorSticher = CursorSticher()
     
     var cursorTexture: MTLTexture?
@@ -189,6 +197,8 @@ extension PlaybackImageCoordinator {
         withObservationTracking {
             _ = self.isAdjustingSharpness;
             _ = self.isAdjustingContrast
+            _ = self.isAdjustingLanczosScale
+            _ = self.lanczosScale
             _ = self.sharpness
             _ = self.contrast
         } onChange: {

@@ -33,37 +33,56 @@ final class MetalContext {
             return bundledLibrary
         }
 
+        let sharedSource = loadShaderSource(
+            name: "KernelNxN",
+            ext: "metalh",
+            subdirectory: "Processing"
+        )
+
         let shaderPaths = [
             ("Contrast", "metal", "Processing/Contrast"),
             ("Sharpen", "metal", "Processing/Sharpen"),
-            ("Cursor", "metal", "Processing/Cursor")
+            ("Cursor", "metal", "Processing/Cursor"),
+            ("Lanczos", "metal", "Processing/Lanczos")
         ]
         
-        let source = shaderPaths.map { name, ext, subdirectory in
-            let url = Bundle.module.url(
-                forResource: name,
-                withExtension: ext,
-                subdirectory: subdirectory
-            ) ?? Bundle.module.url(
-                forResource: name,
-                withExtension: ext
-            )
-            
-            guard let url else {
-                fatalError("Missing Metal shader resource: \(subdirectory)/\(name).\(ext)")
+        let source = (
+            [sharedSource] +
+            shaderPaths.map { name, ext, subdirectory in
+                loadShaderSource(name: name, ext: ext, subdirectory: subdirectory)
+                    .replacingOccurrences(of: #"#include "../KernelNxN.metalh""#, with: "")
             }
-            
-            do {
-                return try String(contentsOf: url, encoding: .utf8)
-            } catch {
-                fatalError("Failed to load Metal shader resource \(name).\(ext): \(error)")
-            }
-        }.joined(separator: "\n")
+        ).joined(separator: "\n")
         
         do {
             return try device.makeLibrary(source: source, options: nil)
         } catch {
             fatalError("Failed to compile bundled Metal shaders: \(error)")
+        }
+    }
+
+    private static func loadShaderSource(
+        name: String,
+        ext: String,
+        subdirectory: String
+    ) -> String {
+        let url = Bundle.module.url(
+            forResource: name,
+            withExtension: ext,
+            subdirectory: subdirectory
+        ) ?? Bundle.module.url(
+            forResource: name,
+            withExtension: ext
+        )
+
+        guard let url else {
+            fatalError("Missing Metal shader resource: \(subdirectory)/\(name).\(ext)")
+        }
+
+        do {
+            return try String(contentsOf: url, encoding: .utf8)
+        } catch {
+            fatalError("Failed to load Metal shader resource \(name).\(ext): \(error)")
         }
     }
 }

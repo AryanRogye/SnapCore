@@ -23,6 +23,7 @@ extension PlaybackImageCoordinator {
     }
     internal func updateDisplayedFrames(
         original: MTLTexture,
+        lanczosed: MTLTexture?,
         contrasted: MTLTexture?,
         sharpened: MTLTexture?,
         baseForSharpness: MTLTexture,
@@ -30,6 +31,7 @@ extension PlaybackImageCoordinator {
     ) {
         let displayed = resolveDisplayedTextures(
             original: original,
+            lanczosed: lanczosed,
             contrasted: contrasted,
             sharpened: sharpened,
             baseForSharpness: baseForSharpness,
@@ -38,6 +40,12 @@ extension PlaybackImageCoordinator {
         
         originalCurrentFrame = getCGImage(from: displayed.original)
         currentFrame = getCGImage(from: displayed.main)
+        
+        if let lanczosed = displayed.lanczosed {
+            currentLanczosFrame = getCGImage(from: lanczosed)
+        } else {
+            currentLanczosFrame = nil
+        }
         
         if let contrasted = displayed.contrasted {
             currentContrastedFrame = getCGImage(from: contrasted)
@@ -54,6 +62,7 @@ extension PlaybackImageCoordinator {
     
     private func resolveDisplayedTextures(
         original: MTLTexture,
+        lanczosed: MTLTexture?,
         contrasted: MTLTexture?,
         sharpened: MTLTexture?,
         baseForSharpness: MTLTexture,
@@ -61,13 +70,16 @@ extension PlaybackImageCoordinator {
     ) -> (
         original: MTLTexture,
         main: MTLTexture,
+        lanczosed: MTLTexture?,
         contrasted: MTLTexture?,
         sharpened: MTLTexture?
     ) {
         let contrastPreview = contrastSideBySide ? contrasted : nil
         let sharpnessPreview = sharpnessSideBySide ? sharpened : nil
+        let lanczosPreview = lanczosSideBySide ? lanczosed : nil
         
         let mainTexture: MTLTexture
+        
         if sharpnessSideBySide {
             mainTexture = cursored ?? baseForSharpness
         } else if let cursored {
@@ -76,6 +88,8 @@ extension PlaybackImageCoordinator {
             mainTexture = sharpened
         } else if let contrasted {
             mainTexture = contrasted
+        } else if let lanczosed {
+            mainTexture = lanczosed
         } else {
             mainTexture = original
         }
@@ -83,6 +97,7 @@ extension PlaybackImageCoordinator {
         return (
             original: original,
             main: mainTexture,
+            lanczosed: lanczosPreview,
             contrasted: contrastPreview,
             sharpened: sharpnessPreview
         )

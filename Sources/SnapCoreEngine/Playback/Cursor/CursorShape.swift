@@ -62,7 +62,7 @@ public struct CursorShape: Shape {
     
     @MainActor
     public static func makeCursorCGImage(
-        config: CursorConfig,
+        config: CursorConfig
     ) -> CGImage? {
         let shadowPadding: CGFloat = 28
         

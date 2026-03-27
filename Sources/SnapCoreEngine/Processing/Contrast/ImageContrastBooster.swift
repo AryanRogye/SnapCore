@@ -14,12 +14,12 @@ struct ContrastUniforms {
     var factor: Float
 }
 
-class ImageContrastBooster {
+class ImageContrastBooster: MetalFilter {
     
     let ctx : MetalContext = .shared
     
     private var psoContrast: MTLComputePipelineState!
-    private var queue: MTLCommandQueue!
+    internal var queue: MTLCommandQueue!
     private var uniformBuf: MTLBuffer!
     
     init() {
@@ -39,50 +39,14 @@ class ImageContrastBooster {
         for image: MTLTexture,
         factor: Float
     ) throws -> MTLTexture? {
-        let width = image.width
-        let height = image.height
-        
-        let descriptor = MTLTextureDescriptor.texture2DDescriptor(
-            pixelFormat: .rgba8Unorm, // Standard 8-bit color
-            width: width,
-            height: height,
-            mipmapped: false
-        )
-        
-        // Crucial: Tell Metal this texture is for writing results
-        descriptor.usage = [.shaderWrite, .shaderRead]
-        
-        guard let outTexture = ctx.device.makeTexture(
-            descriptor: descriptor) else {
-            return nil
-        }
-        
         guard let pso = psoContrast,
-              let cmd = queue.makeCommandBuffer(),
-              let enc = cmd.makeComputeCommandEncoder() else {
-            return nil
-        }
-        
-        enc.setComputePipelineState(pso)
-        // Index 0 is our input (read)
-        enc.setTexture(image, index: 0)
-        
-        // Index 1 is our output (write)
-        enc.setTexture(outTexture, index: 1)
+              let out = makeOutputTexture(matching: image) else { return nil }
         
         var uniforms = ContrastUniforms(factor: factor)
-        enc.setBytes(&uniforms, length: MemoryLayout<ContrastUniforms>.stride, index: 0)
         
-        let w = pso.threadExecutionWidth
-        let h = pso.maxTotalThreadsPerThreadgroup / w
-        let threadgroupSize = MTLSize(width: w, height: h, depth: 1)
-        let gridSize = MTLSize(width: image.width, height: image.height, depth: 1)
-        enc.dispatchThreads(gridSize, threadsPerThreadgroup: threadgroupSize)
-        enc.endEncoding()
-        
-        cmd.commit()
-        cmd.waitUntilCompleted()
-        
-        return outTexture
+        return dispatch(pso: pso, input: image, output: out, uniforms: &uniforms) { enc in
+            enc.setTexture(image, index: 0)
+            enc.setTexture(out, index: 1)
+        }
     }
 }

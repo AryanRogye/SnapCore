@@ -6,7 +6,8 @@ import PackageDescription
 let package = Package(
     name: "SnapCore",
     platforms: [
-        .macOS("15.2")
+        .macOS("15.2"),
+        .iOS(.v17)
     ],
     products: [
         .library(
@@ -53,13 +54,20 @@ let package = Package(
             ],
             resources: [
                 .copy("Processing/Contrast/Contrast.metal"),
-                .copy("Processing/Sharpen/sharpen.metal")
+                .copy("Processing/Sharpen/Sharpen.metal"),
+                .copy("Processing/Cursor/Cursor.metal"),
+                .copy("Processing/Lanczos/Lanczos.metal"),
+                .copy("Processing/KernelNxN.metalh")
             ]
         ),
         .testTarget(
             name: "SnapCoreTests",
             dependencies: ["SnapCore"]
         ),
+        .testTarget(
+            name: "SnapCoreEngineTests",
+            dependencies: ["SnapCoreEngine", "SnapCore"]
+        )
     ],
     swiftLanguageVersions: [.v5]
 )
