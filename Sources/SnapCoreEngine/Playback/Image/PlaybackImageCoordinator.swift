@@ -38,18 +38,15 @@ public final class PlaybackImageCoordinator {
     /// Sharpness
     public var isAdjustingSharpness = false
     public var sharpness: CGFloat = 2.0
-    public var sharpnessSideBySide: Bool = false
     
     /// Contrast
     public var isAdjustingContrast = false
     public var contrast: CGFloat = 1.0
-    public var contrastSideBySide: Bool = false
     
     /// Lanczos
     public var isAdjustingLanczosScale = false
     public var lanczosScale: CGFloat = 1.0
     public var kernelSize: CGFloat = 3.0
-    public var lanczosSideBySide: Bool = false
     
     /// Cursor
     public var cursorConfig = CursorConfig(
@@ -57,11 +54,8 @@ public final class PlaybackImageCoordinator {
         lineWidth: 2
     )
     
+    let imageProcessor = ImageProcessor()
     let imageColorProcessor = ImageColorProcessor()
-    let imageContrastBooster = ImageContrastBooster()
-    let imageSharpener = ImageSharpener()
-    let lanczosUpscaler = LanczosUpscaler()
-    let cursorSticher = CursorSticher()
     
     var cursorTexture: MTLTexture?
     
@@ -175,7 +169,7 @@ extension PlaybackImageCoordinator {
             _ = self.cursorShadowConfig.cursorShadowSharpX
             _ = self.cursorShadowConfig.cursorShadowSharpY
         } onChange: {
-            DispatchQueue.main.async { [weak self] in
+            Task { @MainActor [weak self] in
                 guard let self else { return }
                 assignCursorImage()
                 if let originalCurrentFrame {
@@ -199,10 +193,11 @@ extension PlaybackImageCoordinator {
             _ = self.isAdjustingContrast
             _ = self.isAdjustingLanczosScale
             _ = self.lanczosScale
+            _ = self.kernelSize
             _ = self.sharpness
             _ = self.contrast
         } onChange: {
-            DispatchQueue.main.async { [weak self] in
+            Task { @MainActor [weak self] in
                 guard let self else { return }
                 
                 if let originalCurrentFrame {

@@ -11,7 +11,7 @@ import SwiftData
 
 /// Observable so that we can check for changes
 @Model
-public class CursorConfig {
+final public class CursorConfig {
     public var name: String
     public var sizeWidth: CGFloat
     public var sizeHeight: CGFloat
@@ -58,7 +58,11 @@ public class CursorConfig {
 
 public struct CursorShape: Shape {
     
-    var config: CursorConfig
+    let config: CursorConfig
+    
+    init(config: CursorConfig) {
+        self.config = config
+    }
     
     @MainActor
     public static func makeCursorCGImage(

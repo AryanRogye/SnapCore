@@ -7,7 +7,7 @@
 
 import Metal
 
-private struct LanczosUniforms {
+private struct LanczosUniforms: MetalUniform {
     var scale: Float
     var kernelSize: Int
 }

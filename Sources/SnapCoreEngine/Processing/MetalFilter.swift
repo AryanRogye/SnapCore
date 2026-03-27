@@ -12,6 +12,8 @@ protocol MetalFilter: AnyObject {
     var queue: MTLCommandQueue! { get }
 }
 
+protocol MetalUniform {}
+
 extension MetalFilter {
     
     func makeOutputTexture(scale: Float = 1.0, matching input: MTLTexture) -> MTLTexture? {
@@ -31,7 +33,7 @@ extension MetalFilter {
         return ctx.device.makeTexture(descriptor: descriptor)
     }
 
-    func dispatch<U>(
+    func dispatch<U: MetalUniform>(
         pso: MTLComputePipelineState,
         input: MTLTexture,
         output: MTLTexture,
@@ -42,7 +44,9 @@ extension MetalFilter {
               let enc = cmd.makeComputeCommandEncoder() else { return nil }
         
         enc.setComputePipelineState(pso)
-        enc.setBytes(&uniforms, length: MemoryLayout<U>.stride, index: 0)
+        withUnsafeBytes(of: &uniforms) { bytes in
+            enc.setBytes(bytes.baseAddress!, length: bytes.count, index: 0)
+        }
         setup(enc)
         
         let w = pso.threadExecutionWidth

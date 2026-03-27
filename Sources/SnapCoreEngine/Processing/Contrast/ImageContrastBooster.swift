@@ -10,7 +10,7 @@ import MetalKit
 import Foundation
 import CoreImage
 
-struct ContrastUniforms {
+struct ContrastUniforms: MetalUniform {
     var factor: Float
 }
 

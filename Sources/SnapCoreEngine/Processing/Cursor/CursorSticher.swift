@@ -10,7 +10,7 @@ import MetalKit
 import Foundation
 import CoreImage
 
-private struct MousePosition {
+private struct MousePosition: MetalUniform {
     var x : Float
     var y : Float
     var hotspotX: Float;

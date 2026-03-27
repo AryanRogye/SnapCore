@@ -25,109 +25,26 @@ extension PlaybackImageCoordinator {
         let original = cgImage
         guard let originalTexture = try MetalHelpers.getImageTexture(from: original) else { return }
         
-        let lanczosed = getLanczosUpscaled(originalTexture)
-        let baseForContrast = lanczosed ?? originalTexture
-        let contrasted = getContrastedImage(baseForContrast)
-        let baseForSharpness = contrasted ?? originalTexture
-        let sharpened = getSharpenedImage(baseForSharpness)
-        let baseForCursor = sharpened ?? baseForSharpness
-        let cursored = getCursoredImage(baseForCursor) ?? baseForCursor
-        
-        updateDisplayedFrames(
-            original: originalTexture,
-            lanczosed: lanczosed,
-            contrasted: contrasted,
-            sharpened: sharpened,
-            baseForSharpness: baseForSharpness,
-            cursored: cursored
+        let result = imageProcessor.process(
+            originalTexture,
+            cursorTexture: cursorTexture,
+            isLanczosUpscalingEnabled: isAdjustingLanczosScale,
+            isContrastEnabled: isAdjustingContrast,
+            isSharpeningEnabled: isAdjustingSharpness,
+            isStichingCursorEnabled: recordingInfo.isUsingCustomCursor,
+            frame: recordingInfo.frame,
+            lanczosScale: lanczosScale,
+            kernelSize: kernelSize,
+            contrast: contrast,
+            sharpness: sharpness,
+            currentMouse: currentMouse,
+            cursorShadowConfig: cursorShadowConfig,
+            cursorMotionState: cursorMotionState
         )
         
+        updateDisplayedFrames(from: result)
+        
         currentFrameColor = imageColorProcessor.getDominantColor(from: original)
-    }
-    
-    @MainActor
-    private func getCursoredImage(
-        _ image: MTLTexture
-    ) -> MTLTexture? {
-        
-        /// if we recorded with the cursor return nil
-        guard recordingInfo.isUsingCustomCursor else { return nil }
-        
-        guard let cursorTexture,
-              let point = currentMouse?.point,
-              let frame = recordingInfo.frame else { return nil }
-        do {
-            return try cursorSticher.apply(
-                cursorTexture,
-                onto: image,
-                at: point,
-                screen: frame,
-                shadowConfig: cursorShadowConfig,
-                cursorMotionState: cursorMotionState
-            )
-        } catch {
-            print("Error Applying Cursor")
-            return nil
-        }
-    }
-    
-    /**
-     * Function Checks to make sure that we're adjusting the Lanczos upscale if we're not we return nil
-     * or else we try to get it
-     */
-    private func getLanczosUpscaled(
-        _ image: MTLTexture
-    ) -> MTLTexture? {
-        guard isAdjustingLanczosScale else {
-            return nil
-        }
-        do {
-            return try lanczosUpscaler.upscale(
-                image,
-                lanczosScale: Float(lanczosScale),
-                kernelSize: Int(kernelSize)
-                
-            )
-        } catch {
-            print("Error applying Lanczos Upscale: \(error)")
-            return nil
-        }
-    }
-    
-    /**
-     * Function Checks to make sure that we're adjusting contrast if we're not we return nil
-     * or else we try to get the contrast
-     */
-    private func getContrastedImage(
-        _ image: MTLTexture
-    ) -> MTLTexture? {
-        guard isAdjustingContrast else {
-            return nil
-        }
-        do {
-            return try imageContrastBooster.boostContrast(for: image, factor: Float(contrast))
-        } catch {
-            print("Error applying contrast: \(error)")
-            return nil
-        }
-    }
-    
-    /**
-     * Function Checks to make sure that we're adjusting sharpness if we're not we return nil
-     * or else we try to get the sharpness
-     */
-    private func getSharpenedImage(
-        _ image: MTLTexture
-    ) -> MTLTexture? {
-        guard isAdjustingSharpness else {
-            return nil
-        }
-        do {
-            return try imageSharpener.sharpen(image, sharpness: Float(sharpness))
-        } catch {
-            print("Error sharpening image: \(error)")
-            return nil
-        }
     }
 }
 #endif

@@ -10,7 +10,7 @@ import MetalKit
 import Foundation
 import CoreImage
 
-private struct SharpenUniforms {
+private struct SharpenUniforms: MetalUniform {
     var sharpness: Float
 }
 

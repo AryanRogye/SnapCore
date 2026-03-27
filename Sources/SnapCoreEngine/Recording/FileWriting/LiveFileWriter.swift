@@ -46,7 +46,7 @@ actor LiveFileWriter: FileWriter {
     public var queued_samples: Deque<CMSampleBuffer> = []
     
     public func write(sample: SendableSampleBuffer, info: ValidationInfo, onFrameWritten: @escaping () -> Void) async throws {
-        guard let outputStream else { throw FileWriterError.noOutputStream }
+        guard let _ = outputStream else { throw FileWriterError.noOutputStream }
         let presentationTime = await info.getPresentationTime()
         let pixelBuffer = await info.getPixelBuffer()
         
@@ -110,19 +110,11 @@ actor LiveFileWriter: FileWriter {
     private func sendFormatDescriptionIfNeeded(_ description: CMFormatDescription, to stream: OutputStream) throws {
         guard description != lastSentFormat else { return }
         
-        // For H.264, we extract the SPS and PPS NAL units
-        // This tells the receiver: "Hey, expect a video with X width and Y height"
-        var packet = Data()
-        // You can define a specific 'Type' byte here (e.g., 0xFF) so the phone
-        // knows this is a Header and not a Frame.
-        
-        // Simplified: Just send the raw description bytes or a custom flag
-        // For now, let's just mark the format as sent
         lastSentFormat = description
     }
     
     public func stop() async throws {
-        if let url = outputURL {
+        if let _ = outputURL {
             queued_samples.removeAll()
         }
     }

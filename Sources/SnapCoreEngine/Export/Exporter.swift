@@ -249,6 +249,7 @@ public final class Exporter {
                                     contrast: contrast,
                                     pixelBufferPool: adaptorBox.value.pixelBufferPool
                                 )
+                                
                             } else {
                                 outputBuffer = imageBuffer
                             }
@@ -284,8 +285,7 @@ public final class Exporter {
         contrast: Float,
         pixelBufferPool: CVPixelBufferPool?
     ) throws -> CVPixelBuffer {
-        
-        guard var cgImage = getCG(from: inputBuffer) else {
+        guard let cgImage = getCG(from: inputBuffer) else {
             throw ExportError.cgImageCreationFailed
         }
         let outputCGImage: CGImage
