@@ -10,54 +10,54 @@ import AVFoundation
 import SnapCore
 
 actor RecordingFileWriter: FileWriter {
-    
+
     let recorder: ScreenRecordProviding
     var outputURL: URL? = nil
     var lastPTS: CMTime = .invalid
-    
+
     init(recorder: ScreenRecordProviding) {
         self.recorder = recorder
     }
-    
+
     public func getOutput() -> URL? {
         outputURL
     }
-    
-    public func start(outputURL: URL) async {
+
+    public func start(outputURL: URL, expectedFPS: Int = 30) async {
         self.outputURL = outputURL
         self.lastPTS = .invalid
         await recorder.prepareRecordingOutput(url: outputURL)
     }
-    
+
     public func write(
         sample: SendableSampleBuffer,
         info: ValidationInfo,
         onFrameWritten: @escaping () -> Void
     ) async throws {
-        
+
         let presentationTime = await info.getPresentationTime()
-        
+
         if !SampleValidator.isValidSample(lastPTS: lastPTS, presentationTime: presentationTime) {
             return
         }
-        
+
         if let error = await recorder.getRecordingOutputErrorMessage() {
             throw FileWriterError.errorWritingToFile(error)
         }
-        
+
         lastPTS = presentationTime
         onFrameWritten()
     }
-    
+
     public func stop() async throws {
         if let error = await recorder.getRecordingOutputErrorMessage() {
             throw FileWriterError.errorWritingToFile(error)
         }
-        
+
         guard let url = outputURL else { return }
         try await waitForValidFile(at: url)
     }
-    
+
     private func waitForValidFile(at url: URL, timeout: TimeInterval = 20.0) async throws {
         let start = Date()
         while Date().timeIntervalSince(start) < timeout {
@@ -69,6 +69,6 @@ actor RecordingFileWriter: FileWriter {
         }
         throw FileWriterError.errorWritingToFile("File not valid after timeout")
     }
-    
+
 }
 #endif

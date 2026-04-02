@@ -88,6 +88,10 @@ public final class PlaybackEngine {
 
         self.imageCoordinator.assign(to: playerCoordinator.player)
         self.imageCoordinator.startRendering()
+        self.playerCoordinator.onClearCurrentFrame = { [weak self] in
+            guard let self else { return }
+            self.imageCoordinator.clearCurrentFrame()
+        }
     }
     
     public func play() {

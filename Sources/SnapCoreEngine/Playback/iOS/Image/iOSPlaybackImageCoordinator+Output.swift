@@ -7,7 +7,7 @@
 
 import CoreImage
 
-#if os(macOS)
+#if os(iOS)
 extension PlaybackImageCoordinator {
     
     private static let ciContext = CIContext(mtlDevice: MetalContext.shared.device)
@@ -22,6 +22,7 @@ extension PlaybackImageCoordinator {
         
         return Self.ciContext.createCGImage(flipped, from: flipped.extent)
     }
+    
     internal func updateDisplayedFrames(
         from result: ImageProcessorResult
     ) {

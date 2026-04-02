@@ -19,28 +19,28 @@ public enum RecordingConfig {
 @Observable
 @MainActor
 public final class RecordingCoordinator {
-    
+
     /// Recorder service from ``SnapCore``
     var recorder : ScreenRecordProviding
-    
+
     public var scale: VideoScale = .native
     public var fps  : FPS = .fps120
-    
+
     public var lastBackingScaleFactorUsed: CGFloat = 2.0
 
     /// Our "File Writer"
     let recordingFileWriter: RecordingFileWriter
     let liveFileWriter : LiveFileWriter
-    
+
     var lastConfig: RecordingConfig = .recording
     var lastFileWriter : FileWriter? = nil
-    
+
     public var recordingInfo = RecordingInfo()
-    
+
     var mouseCoordinator = MouseCoordinator()
-    
+
     let ciContext = CIContext(options: [.useSoftwareRenderer: false])
-    
+
 
     public init() {
         let recorder = ScreenRecordService()
@@ -48,17 +48,17 @@ public final class RecordingCoordinator {
         self.recordingFileWriter = RecordingFileWriter(recorder: recorder)
         self.liveFileWriter = LiveFileWriter()
     }
-    
+
     var recordingActivity: NSObjectProtocol?
-    
+
     private var frameCount = 0
     private let processEvery = 20
-    
+
     public func startRecording(
         with config: RecordingConfig = .recording
     ) async {
         let temp = getTemp()
-        
+
         await liveFileWriter.clearOutputStream()
         lastConfig = config
         let fileWriter: FileWriter = await {
@@ -70,28 +70,28 @@ public final class RecordingCoordinator {
             }
         }()
         lastFileWriter = fileWriter
-        await fileWriter.start(outputURL: temp)
-        
+        await fileWriter.start(outputURL: temp, expectedFPS: fps.value)
+
         self.recordingInfo.clear()
         self.recordingInfo.setURL(temp)
-        
+
         beginRecordingActivity()
         mouseCoordinator.startMonitoring()
-        
+
         var didResumeStart = false
-        
+
         await withCheckedContinuation { continuation in
             recorder.onScreenFrame = { sample in
                 do {
                     guard let info = SampleValidator.isValidSample(sample) else { return }
-                    
+
                     try await fileWriter.write(
                         sample: sample,
                         info: info,
                         onFrameWritten: { [weak self] in
                             Task { @MainActor [weak self] in
                                 guard let self else { return }
-                                
+
                                 let mouse = NSEvent.mouseLocation
                                 self.recordingInfo.append(
                                     FrameInfo(
@@ -101,7 +101,7 @@ public final class RecordingCoordinator {
                                         rightMouseDown: self.mouseCoordinator.isRightMouseDown
                                     )
                                 )
-                                
+
                                 self.frameCount += 1
                                 guard self.frameCount % self.processEvery == 0 else {
                                     if !didResumeStart {
@@ -110,11 +110,11 @@ public final class RecordingCoordinator {
                                     }
                                     return
                                 }
-                                
+
                                 if let img = self.convert(sample: sample.buffer) {
                                     self.recordingInfo.setLastImage(img)
                                 }
-                                
+
                                 if !didResumeStart {
                                     didResumeStart = true
                                     continuation.resume()
@@ -126,36 +126,36 @@ public final class RecordingCoordinator {
                     print(error)
                 }
             }
-            
+
             recorder.startRecording(
                 scale: scale,
                 showsCursor: !recordingInfo.isUsingCustomCursor,
                 capturesAudio: false,
                 fps: fps
             )
-            
+
             self.lastBackingScaleFactorUsed = self.recorder.getLastScaleFactorUsed()
         }
     }
-    
+
     public func stopRecording() async throws {
         defer {
             endRecordingActivity()
         }
-        
+
         await recorder.stopRecording()
         mouseCoordinator.stopMonitoring()
-        
+
         try await stopFileWriter()
         analyzeCachedFilter()
-        
+
     }
-    
+
     private func analyzeCachedFilter() {
         if let filter = recorder.getCachedFilter() {
             let displays = filter.includedDisplays
             guard !displays.isEmpty else { print("Couldnt Analyze Filter - No Displays"); return }
-            
+
             if let first = displays.first {
                 recordingInfo.displayWidth = first.width
                 recordingInfo.displayHeight = first.height
@@ -163,7 +163,7 @@ public final class RecordingCoordinator {
             }
         }
     }
-    
+
     private func stopFileWriter() async throws {
         do {
             try await lastFileWriter?.stop()
@@ -180,9 +180,9 @@ public final class RecordingCoordinator {
             print("Error: \(error)")
         }
     }
-    
+
     // MARK: - Helpers
-    
+
     /**
      * Function makes a temp URL and saves the video to this before processing
      */
@@ -191,7 +191,7 @@ public final class RecordingCoordinator {
             .appendingPathComponent(UUID().uuidString)
             .appendingPathExtension("mp4")
     }
-    
+
     private func beginRecordingActivity() {
         endRecordingActivity()
         recordingActivity = ProcessInfo.processInfo.beginActivity(
@@ -199,13 +199,13 @@ public final class RecordingCoordinator {
             reason: "Screen recording in progress"
         )
     }
-    
+
     private func endRecordingActivity() {
         guard let recordingActivity else { return }
         ProcessInfo.processInfo.endActivity(recordingActivity)
         self.recordingActivity = nil
     }
-    
+
     private func convert(sample: CMSampleBuffer) -> CGImage? {
         guard let pixelBuffer = CMSampleBufferGetImageBuffer(sample) else { return nil }
         let ciImage = CIImage(cvImageBuffer: pixelBuffer)

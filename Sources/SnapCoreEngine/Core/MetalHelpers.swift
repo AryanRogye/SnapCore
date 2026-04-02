@@ -9,7 +9,7 @@ import Metal
 import MetalKit
 import CoreImage
 
-struct MetalHelpers {
+public struct MetalHelpers {
     public static func getImageTexture(
         from cgImage: CGImage
     ) throws -> MTLTexture? {

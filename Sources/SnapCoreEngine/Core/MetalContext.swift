@@ -8,12 +8,12 @@
 import Foundation
 import Metal
 
-final class MetalContext {
+public final class MetalContext {
     
-    static let shared = MetalContext()
-    let device: MTLDevice
-    let queue: MTLCommandQueue
-    let library: MTLLibrary
+    public static let shared = MetalContext()
+    public let device: MTLDevice
+    public let queue: MTLCommandQueue
+    public let library: MTLLibrary
     
     private init() {
         guard let device = MTLCreateSystemDefaultDevice() else {

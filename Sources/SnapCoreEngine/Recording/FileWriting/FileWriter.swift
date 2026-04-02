@@ -10,19 +10,20 @@ import Foundation
 import SnapCore
 
 protocol FileWriter {
-    
+
     func getOutput() async -> URL?
-    
+
     func start(
-        outputURL: URL
+        outputURL: URL,
+        expectedFPS: Int
     ) async
-    
+
     func write(
         sample: SendableSampleBuffer,
         info: ValidationInfo,
         onFrameWritten: @escaping () -> Void
     ) async throws
-    
+
     func stop() async throws
 }
 

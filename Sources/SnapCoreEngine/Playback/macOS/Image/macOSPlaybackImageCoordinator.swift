@@ -143,6 +143,16 @@ public final class PlaybackImageCoordinator {
         
         processImage(pixelBuffer: pixelBuffer)
     }
+    
+    /// we can give this to other closures so that they can close it
+    public func clearCurrentFrame() {
+        currentFrame = nil
+        originalCurrentFrame = nil
+        currentSharpenedFrame = nil
+        currentContrastedFrame = nil
+        currentLanczosFrame = nil
+        currentFrameColor = nil
+    }
 }
 
 // MARK: - Observations
@@ -169,7 +179,7 @@ extension PlaybackImageCoordinator {
             _ = self.cursorShadowConfig.cursorShadowSharpX
             _ = self.cursorShadowConfig.cursorShadowSharpY
         } onChange: {
-            Task { @MainActor [weak self] in
+            DispatchQueue.main.async { [weak self] in
                 guard let self else { return }
                 assignCursorImage()
                 if let originalCurrentFrame {
@@ -197,7 +207,7 @@ extension PlaybackImageCoordinator {
             _ = self.sharpness
             _ = self.contrast
         } onChange: {
-            Task { @MainActor [weak self] in
+            DispatchQueue.main.async { [weak self] in
                 guard let self else { return }
                 
                 if let originalCurrentFrame {

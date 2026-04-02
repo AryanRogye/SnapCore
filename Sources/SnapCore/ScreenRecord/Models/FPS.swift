@@ -10,7 +10,7 @@ public enum FPS: String, CaseIterable, Codable {
     case fps60 = "60 fps"
     case fps120 = "120 fps"
     
-    var value: Int {
+    public var value: Int {
         switch self {
         case .fps30: return 30
         case .fps60: return 60

@@ -1,9 +1,9 @@
 # SnapCore
 
-SnapCore is a Swift package for macOS with two library products:
+SnapCore is a Swift package for Apple platforms with two library products:
 
-- `SnapCore`: screenshot capture and screen-recording primitives.
-- `SnapCoreEngine`: a higher-level recording/playback/export layer built on top of `SnapCore`. This target is still WIP and its API may change.
+- `SnapCore`: screenshot capture and screen-recording primitives for macOS.
+- `SnapCoreEngine`: a higher-level recording/playback/export layer built on top of `SnapCore`, with playback/export APIs that also support iOS. This target is still WIP and its API may change.
 
 - Build: `swift build`
 - Test: `swift test`
@@ -12,17 +12,17 @@ Note: Real capture and recording require macOS Screen Recording permission. Test
 
 ### Requirements
 
-- macOS 15.2+
+- macOS 15.2+ / iOS 17+
 - Swift 5 language mode
-- ScreenCaptureKit (built-in on macOS 13+)
+- ScreenCaptureKit for macOS capture/recording flows
 - Metal support is required only if you use `SnapCoreEngine`'s image-processing path.
 
 The package uses modern Swift concurrency APIs (`async`, actors, `@MainActor`) while building in Swift 5 language mode.
 
 ## Products
 
-- `SnapCore`: the stable low-level capture library.
-- `SnapCoreEngine`: the higher-level engine target for recording, playback, export, and Metal-backed image processing. It is currently WIP and not yet fully documented as a stable public API surface.
+- `SnapCore`: the stable low-level capture library for macOS screenshot and screen-recording flows.
+- `SnapCoreEngine`: the higher-level engine target for recording, playback, export, livestream decoding, and Metal-backed image processing. It is currently WIP and not yet fully documented as a stable public API surface.
 
 ## Installation
 
@@ -341,6 +341,97 @@ final class EditingViewModel {
 }
 ```
 
+### Engine iOS timeline playback example
+
+The current iOS editor flow mirrors the `VideoEditor_iOS` app: create a `PlaybackEngine(url:)`, build timeline clip arrays, and call `replaceAllFiles(video:audio:)` on the main actor.
+
+```swift
+import AVFoundation
+import Observation
+import SnapCoreEngine
+
+struct TimelineVideoClip {
+    let url: URL
+    let trimIn: Double
+    let trimOut: Double
+    let sourceDuration: Double
+    let timelineStart: Double
+    let orientation: Int
+}
+
+struct TimelineAudioClip {
+    let url: URL
+    let trimIn: Double
+    let trimOut: Double
+    let sourceDuration: Double
+    let timelineStart: Double
+    let orientation: Int
+}
+
+@Observable
+@MainActor
+final class EditingViewModel {
+    var mediaURL: URL
+    var playbackEngine: PlaybackEngine
+
+    init(url: URL) {
+        self.mediaURL = url
+        self.playbackEngine = PlaybackEngine(url: url)
+    }
+
+    func reloadTimeline(
+        videoClips: [TimelineVideoClip],
+        audioClips: [TimelineAudioClip]
+    ) async throws {
+        let videoFiles = videoClips.map {
+            VideoFileInfo(
+                url: $0.url,
+                start: $0.trimIn / $0.sourceDuration,
+                end: $0.trimOut / $0.sourceDuration,
+                timelineStart: $0.timelineStart,
+                orientation: $0.orientation
+            )
+        }
+
+        let audioFiles = audioClips.map {
+            AudioFileInfo(
+                url: $0.url,
+                start: $0.trimIn / $0.sourceDuration,
+                end: $0.trimOut / $0.sourceDuration,
+                timelineStart: $0.timelineStart,
+                orientation: $0.orientation
+            )
+        }
+
+        try await playbackEngine.playerCoordinator.replaceAllFiles(
+            video: videoFiles,
+            audio: audioFiles
+        )
+    }
+
+    func play() {
+        playbackEngine.play()
+    }
+
+    func pause() {
+        playbackEngine.pause()
+    }
+
+    func seek(to progress: Double) {
+        guard playbackEngine.totalDuration > 0 else { return }
+        let time = CMTime(seconds: progress * playbackEngine.totalDuration, preferredTimescale: 600)
+        playbackEngine.seek(to: time)
+    }
+}
+```
+
+Current timeline behavior in `replaceAllFiles(video:audio:)`:
+
+- Video is resolved to a single visible lane; overlapping video clips do not layer.
+- A later video clip trims the visible tail of an earlier overlapping video clip.
+- Embedded audio from video clips is preserved for the resolved visible video ranges.
+- Separate audio clips are inserted on as many composition audio tracks as needed, so they can overlap and mix.
+
 ### Engine cursor customization example
 
 `PlaybackImageCoordinator` exposes live cursor styling models. The `TestingSR` app binds sliders directly to both `cursorConfig` and `cursorShadowConfig`, so changes are reflected in playback without rebuilding the engine:
@@ -424,15 +515,68 @@ struct ExportButton: View {
 }
 ```
 
+### Engine livestream decoding example
+
+`SnapCoreEngine` does not ship peer discovery or transport, but it does support streaming encoded video into any `OutputStream` and decoding it back from any `InputStream`. The `Phmirror` app uses `MultipeerConnectivity` to provide those streams.
+
+macOS host side:
+
+```swift
+import Foundation
+import SnapCoreEngine
+
+@MainActor
+func startLivestream(recorder: Recorder, stream: OutputStream) async throws {
+    try await recorder.toggle(with: .livestream(stream))
+}
+```
+
+iOS client side:
+
+```swift
+import Foundation
+import UIKit
+import SnapCoreEngine
+
+final class StreamViewModel {
+    let decoder = LiveFileWritingDecoder()
+    var latestFrame: UIImage?
+    var status = "Idle"
+
+    init() {
+        decoder.onFrameImage = { [weak self] image, _ in
+            self?.latestFrame = UIImage(cgImage: image)
+        }
+
+        decoder.onStatus = { [weak self] status in
+            self?.status = status
+        }
+    }
+
+    func attach(stream: InputStream) {
+        decoder.start(stream: stream)
+    }
+
+    func stop() {
+        decoder.stop()
+    }
+}
+```
+
+The stream transport layer is app-owned. `Phmirror` uses `MultipeerConnectivity`, but any source that gives you an `OutputStream`/`InputStream` pair works. On macOS, the decoder API is the same, but you would usually convert the `CGImage` into an `NSImage` instead of a `UIImage`.
+
 ### Notes & caveats
 
 - Permissions: macOS Screen Recording permission is required. If not granted, `startRecording` will trigger the system prompt on first use. Guide users to System Settings → Privacy & Security → Screen Recording, then relaunch.
-- Availability: SnapCore now targets macOS 15.2+.
+- Availability: SnapCore now targets macOS 15.2+ and iOS 17+.
 - Actors: `ScreenRecordService` is `@MainActor`, and frame handlers are async callbacks awaited by the service. Keep handlers lightweight and offload heavy work if needed.
 - Picker: The system content picker is limited to single-display selection in the current build. After a successful selection, the chosen filter is cached and reused for later `startRecording()` calls on the same service instance.
 - Audio: When `capturesAudio` is `true`, audio sample buffers are delivered. You are responsible for mixing/muxing.
 - Frame rate: pass `fps` to `startRecording()` to choose `30`, `60`, or `120` FPS. The default is `.fps120`.
 - File output: call `prepareRecordingOutput(url:)` before `startRecording()` if you want ScreenCaptureKit to write a `.mov`, `.mp4`, or `.m4v` file directly.
+- iOS playback: `PlaybackEngine(url:)` is the iOS entry point for loading a media file or editor timeline.
+- Timeline playback: `replaceAllFiles(video:audio:)` is `@MainActor`; video stays single-lane while audio clips can layer.
+- Livestreaming: `RecordingConfig.livestream(OutputStream)` writes encoded frames to an app-provided stream, and `LiveFileWritingDecoder` reconstructs frames from an `InputStream`.
 - Metal: `SnapCoreEngine` compiles its bundled shader sources internally from package resources. Consumer apps do not need extra Metal-specific setup beyond running on a Metal-capable Mac.
 - Recording models: `RecordingInfo` stores the captured file URL, preview image, frame metadata, display metadata, and whether a custom cursor should be rendered during playback/export.
 - Cursor rendering: `CursorConfig` is public and can be stored with SwiftData, which is how `TestingSR` saves and reloads cursor presets.

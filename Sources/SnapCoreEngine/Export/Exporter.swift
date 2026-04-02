@@ -5,9 +5,12 @@
 //  Created by Aryan Rogye on 3/19/26.
 //
 
-#if os(macOS)
 import AVFoundation
+#if os(macOS)
 import AppKit
+#elseif os(iOS)
+import UIKit
+#endif
 
 enum ExportError: Error {
     case noVideoTrack
@@ -30,6 +33,7 @@ public final class Exporter {
     
     public init() {}
     
+#if os(macOS)
     @discardableResult
     public func export(
         recordingInfo: RecordingInfo,
@@ -46,7 +50,7 @@ public final class Exporter {
         guard let videoTrack = try await asset.loadTracks(withMediaType: .video).first else {
             throw ExportError.noVideoTrack
         }
-
+        
         let duration = try await asset.load(.duration)
         
         let startTime = CMTimeMultiplyByFloat64(duration, multiplier: start)
@@ -69,7 +73,7 @@ public final class Exporter {
             selectedRange: selectedRange,
             videoTrack: videoTrack
         )
-
+        
         try await setupWriter(
             reader: reader,
             readerOutput: readerOutput,
@@ -82,9 +86,52 @@ public final class Exporter {
         NSWorkspace.shared.open(outputURL)
         return outputURL
     }
+#elseif os(iOS)
+    public func export(
+        composition: AVMutableComposition,  // ← take composition instead of recordingInfo
+        start: Float64,
+        end: Float64,
+        sharpness: Float,
+        contrast: Float
+    ) async throws -> URL? {
+        
+        guard let videoTrack = try await composition.loadTracks(withMediaType: .video).first else {
+            throw ExportError.noVideoTrack
+        }
+        
+        let duration = try await composition.load(.duration)
+        
+        let startTime = CMTimeMultiplyByFloat64(duration, multiplier: start)
+        let endTime = CMTimeMultiplyByFloat64(duration, multiplier: end)
+        let durationOfSegment = CMTimeSubtract(endTime, startTime)
+        let selectedRange = CMTimeRange(start: startTime, duration: durationOfSegment)
+        
+        let outputURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString)
+            .appendingPathExtension("mp4")
+        
+        let (reader, readerOutput) = try setupReader(
+            asset: composition,  // AVMutableComposition is an AVAsset subclass, this just works
+            selectedRange: selectedRange,
+            videoTrack: videoTrack
+        )
+        
+        try await setupWriter(
+            reader: reader,
+            readerOutput: readerOutput,
+            outputURL: outputURL,
+            videoTrack: videoTrack,
+            startTime: startTime,
+            sharpness: sharpness,
+            contrast: contrast
+        )
+        
+        return outputURL
+    }
+#endif
     
     private func setupReader(
-        asset: AVURLAsset,
+        asset: AVAsset,
         selectedRange: CMTimeRange,
         videoTrack: AVAssetTrack
     ) throws -> (AVAssetReader, AVAssetReaderOutput) {
@@ -351,4 +398,3 @@ public final class Exporter {
         return context.createCGImage(ciImage, from: ciImage.extent)
     }
 }
-#endif

@@ -7,25 +7,60 @@
 
 import MetalKit
 
-struct ImageProcessorResult {
-    var original: MTLTexture
-    var LanczosTexture: MTLTexture?
-    var contrastTexture: MTLTexture?
-    var sharpeningTexture: MTLTexture?
+public struct ImageProcessorResult {
+    public var original: MTLTexture
+    public var LanczosTexture: MTLTexture?
+    public var contrastTexture: MTLTexture?
+    public var sharpeningTexture: MTLTexture?
     /// this would be the output texture
-    var stitchingCursorTexture: MTLTexture?
+    public var stitchingCursorTexture: MTLTexture?
     
-    init(original: MTLTexture) {
+    public init(original: MTLTexture) {
         self.original = original
     }
 }
 
-final class ImageProcessor {
+public final class ImageProcessor {
     
     let cursorSticher = CursorSticher()
     let lanczosUpscaler = LanczosUpscaler()
     let imageContrastBooster = ImageContrastBooster()
     let imageSharpener = ImageSharpener()
+    
+    public init() { }
+    
+    public func process(
+        _ texture: MTLTexture,
+        cursorTexture: MTLTexture?,
+        isLanczosUpscalingEnabled: Bool,
+        isContrastEnabled: Bool,
+        isSharpeningEnabled: Bool,
+        isStichingCursorEnabled: Bool,
+        frame: CGRect?,
+        lanczosScale: CGFloat,
+        kernelSize: CGFloat,
+        contrast: CGFloat,
+        sharpness: CGFloat,
+        currentMouse: CurrentMouseInfo?,
+        cursorShadowConfig: CursorShadowConfig?,
+        cursorMotionState: CursorMotionState?,
+    ) -> ImageProcessorResult {
+        return process(texture,
+                       cursorTexture: cursorTexture,
+                       isLanczosUpscalingEnabled: isLanczosUpscalingEnabled,
+                       isContrastEnabled: isContrastEnabled,
+                       isSharpeningEnabled: isSharpeningEnabled,
+                       isStichingCursorEnabled: isStichingCursorEnabled,
+                       frame: frame,
+                       lanczosScale: lanczosScale,
+                       kernelSize: kernelSize,
+                       contrast: contrast,
+                       sharpness: sharpness,
+                       currentMouse: currentMouse,
+                       cursorShadowConfig: cursorShadowConfig ?? CursorShadowConfig(),
+                       cursorMotionState: cursorMotionState ?? CursorMotionState()
+        )
+    }
     
     public func process(
         _ texture: MTLTexture,
