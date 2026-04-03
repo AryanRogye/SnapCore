@@ -7,61 +7,13 @@
 
 import AVFoundation
 
-//public enum Orientation {
-//    
-//    case ninety
-//    case oneEighty
-//    case twoSeventy
-//    case threeSixty
-//    
-//    case negativeNinety
-//    case negativeOneEighty
-//    case negativeTwoSeventy
-//    case negativeThreeSixty
-//    
-//    case notApplicable
-//
-//    func transform(for naturalSize: CGSize) -> CGAffineTransform {
-//        switch self {
-//        case .ninety:
-//            return CGAffineTransform(rotationAngle: .pi / 2)
-//                .translatedBy(x: 0, y: -naturalSize.width)
-//        case .negativeNinety:
-//            return CGAffineTransform(rotationAngle: -.pi / 2)
-//                .translatedBy(x: -naturalSize.height, y: 0)
-//
-//        case .oneEighty:
-//            return CGAffineTransform(rotationAngle: .pi)
-//                .translatedBy(x: -naturalSize.width, y: -naturalSize.height)
-//        case .negativeOneEighty:
-//            return CGAffineTransform(rotationAngle: -.pi)
-//                .translatedBy(x: -naturalSize.width, y: -naturalSize.height)
-//
-//            
-//        case .twoSeventy:
-//            return CGAffineTransform(rotationAngle: -.pi / 2)
-//                .translatedBy(x: -naturalSize.height, y: 0)
-//        case .negativeTwoSeventy:
-//            return CGAffineTransform(rotationAngle: .pi / 2)
-//                .translatedBy(x: 0, y: -naturalSize.width)
-//
-//        case .threeSixty:
-//            return .identity
-//        case .negativeThreeSixty:
-//            return .identity
-//            
-//        case .notApplicable:
-//            return .identity
-//        }
-//    }
-//}
-
 public protocol FileInfo {
     var url: URL { get set }
     var start: Float64 { get set } // trimIn normalized (source window)
     var end: Float64 { get set } // trimOut normalized (source window)
     var timelineStart: Float64  { get set } // ← where it sits on the timeline, in seconds
     var orientation: Int { get set } // degrees
+    var volume: CGFloat { get set }
 }
 
 public struct VideoFileInfo: FileInfo {
@@ -70,19 +22,22 @@ public struct VideoFileInfo: FileInfo {
     public var end: Float64
     public var timelineStart: Float64
     public var orientation: Int
+    public var volume: CGFloat
     
     public init(
         url: URL,
         start: Float64,
         end: Float64,
         timelineStart: Float64,
-        orientation: Int
+        orientation: Int,
+        volume: CGFloat
     ) {
         self.url = url
         self.start = start
         self.end = end
         self.timelineStart = timelineStart
         self.orientation = orientation
+        self.volume = volume
     }
 }
 
@@ -92,19 +47,22 @@ public struct AudioFileInfo: FileInfo {
     public var end: Float64
     public var timelineStart: Float64
     public var orientation: Int
+    public var volume: CGFloat
     
     public init(
         url: URL,
         start: Float64,
         end: Float64,
         timelineStart: Float64,
-        orientation: Int
+        orientation: Int,
+        volume: CGFloat
     ) {
         self.url = url
         self.start = start
         self.end = end
         self.timelineStart = timelineStart
         self.orientation = orientation
+        self.volume = volume
     }
 }
 
@@ -200,6 +158,7 @@ public final class PlaybackPlayerCoordinator {
     let videoOutput: AVPlayerItemVideoOutput
     
     var totalDuration: Float64 = 0
+    public var lastCompostion: AVMutableComposition?
     
     /// both image coordinators on macOS and iOS should set this during init
     public var onClearCurrentFrame: () -> Void = {
@@ -249,7 +208,6 @@ public final class PlaybackPlayerCoordinator {
     }
 }
 
-
 // MARK: - Audio And Video
 extension PlaybackPlayerCoordinator {
     private var timelineTimescale: CMTimeScale {
@@ -272,7 +230,10 @@ extension PlaybackPlayerCoordinator {
         )
     }
 
-    private func makeInterval(index: Int, assetInfo: AssetInfo) -> PlaybackTimelineInterval {
+    private func makeInterval(
+        index: Int,
+        assetInfo: AssetInfo
+    ) -> PlaybackTimelineInterval {
         PlaybackTimelineInterval(
             index: index,
             start: assetInfo.insertTime.seconds,
@@ -287,8 +248,200 @@ extension PlaybackPlayerCoordinator {
         let duration = CMTime(seconds: interval.end - interval.start, preferredTimescale: timelineTimescale)
         return CMTimeRange(start: sourceRange.start, duration: duration)
     }
+    
+    @MainActor
+    public func replaceAllFiles(
+        video: [VideoFileInfo],
+        audio: [AudioFileInfo]
+    ) async throws {
+        let composition = AVMutableComposition()
+        
+        let loadedVideoClips = try await loadVideoClips(video)
+        let resolvedVideoIntervals = PlaybackTimelineLayout.resolvePrimaryVideo(
+            loadedVideoClips.map { makeInterval(index: $0.index, assetInfo: $0.assetInfo) }
+        )
+        let loadedVideoClipsByIndex = Dictionary(
+            uniqueKeysWithValues: loadedVideoClips.map { ($0.index, $0) }
+        )
+        
+        let loadedAudioClips = try await loadAudioClips(audio)
+        let explicitAudioLanes = PlaybackTimelineLayout.assignAudioLanes(
+            loadedAudioClips.map { makeInterval(index: $0.index, assetInfo: $0.assetInfo) }
+        )
+        let loadedAudioClipsByIndex = Dictionary(
+            uniqueKeysWithValues: loadedAudioClips.map { ($0.index, $0) }
+        )
+        
+        var instructions: [AVMutableVideoCompositionInstruction] = []
+        
+        // Build the video composition before the loop so we can set renderSize inside it
+        let videoComposition = AVMutableVideoComposition()
+        videoComposition.frameDuration = CMTime(value: 1, timescale: 30)
+        videoComposition.renderSize = .zero // will be set from the first clip's actual display size
+        
+        let compVideoTrack = resolvedVideoIntervals.isEmpty
+        ? nil
+        : composition.addMutableTrack(
+            withMediaType: .video,
+            preferredTrackID: kCMPersistentTrackID_Invalid
+        )
+        
+        for resolvedInterval in resolvedVideoIntervals {
+            guard
+                let compVideoTrack,
+                let clip = loadedVideoClipsByIndex[resolvedInterval.index]
+            else {
+                continue
+            }
+            
+            let insertTime = CMTime(seconds: resolvedInterval.start, preferredTimescale: timelineTimescale)
+            let sourceRange = makeResolvedSourceRange(from: clip.assetInfo.sourceRange, using: resolvedInterval)
+            
+            // Insert this clip's time range into the composition's single primary video track.
+            // Overlaps are trimmed ahead of time so video never layers.
+            try compVideoTrack.insertTimeRange(sourceRange, of: clip.videoTrack, at: insertTime)
+            
+            // naturalSize is the raw sensor size — for portrait videos this is
+            // e.g. 1080x1920 but may be reported as 1920x1080 before transform is applied
+            let naturalSize = clip.naturalSize
+            
+            // preferredTransform is the rotation metadata baked into the file by the camera.
+            // e.g. a portrait iPhone video has a 90° rotation stored here
+            let preferredTransform = clip.preferredTransform
+            
+            // Decide which transform to apply to the layer:
+            // - orientation == 0: trust the asset's own metadata
+            // - otherwise: apply the user-specified rotation on top
+            let userTransform = clip.file.orientation != 0
+            ? CGAffineTransform(rotationAngle: CGFloat(clip.file.orientation) * .pi / 180)
+            : .identity
+            
+            let finalTransform = preferredTransform.concatenating(userTransform)
+            
+            let transformedRect = CGRect(origin: .zero, size: naturalSize).applying(finalTransform)
+            let displaySize = CGSize(
+                width: abs(transformedRect.width),
+                height: abs(transformedRect.height)
+            )
+            
+            if videoComposition.renderSize == .zero {
+                videoComposition.renderSize = displaySize
+            }
+            
+            var scaledTransform = finalTransform
+            if clip.file.orientation != 0, videoComposition.renderSize != .zero {
+                let renderSize = videoComposition.renderSize
+                let scaleX = renderSize.width / displaySize.width
+                let scaleY = renderSize.height / displaySize.height
+                let scale = min(scaleX, scaleY)
+                
+                scaledTransform = finalTransform.scaledBy(x: scale, y: scale)
+                
+                let scaledRect = CGRect(origin: .zero, size: naturalSize).applying(scaledTransform)
+                let offsetX = (renderSize.width - abs(scaledRect.width)) / 2 - scaledRect.minX
+                let offsetY = (renderSize.height - abs(scaledRect.height)) / 2 - scaledRect.minY
+                scaledTransform = scaledTransform.translatedBy(x: offsetX / scale, y: offsetY / scale)
+            }
+            
+            let layerInstruction = AVMutableVideoCompositionLayerInstruction(assetTrack: compVideoTrack)
+            layerInstruction.setTransform(scaledTransform, at: insertTime)
+            layerInstruction.setTransform(.identity, at: CMTimeAdd(insertTime, sourceRange.duration))
+            
+            let instruction = AVMutableVideoCompositionInstruction()
+            instruction.timeRange = CMTimeRange(start: insertTime, duration: sourceRange.duration)
+            instruction.layerInstructions = [layerInstruction]
+            instructions.append(instruction)
+        }
+        
+        let resolvedVideoAudioLanes = PlaybackTimelineLayout.assignAudioLanes(
+            resolvedVideoIntervals
+        )
+        let resolvedVideoAudioByIndex = Dictionary(
+            uniqueKeysWithValues: resolvedVideoIntervals.map { ($0.index, $0) }
+        )
+        
+        var audioMixParams: [AVMutableAudioMixInputParameters] = []
+        
+        for lane in resolvedVideoAudioLanes {
+            
+            guard let compAudioTrack = composition.addMutableTrack(
+                withMediaType: .audio,
+                preferredTrackID: kCMPersistentTrackID_Invalid
+            ) else {
+                continue
+            }
+            
+            let params = AVMutableAudioMixInputParameters(track: compAudioTrack)
+            
+            for interval in lane {
+                guard
+                    let clip = loadedVideoClipsByIndex[interval.index],
+                    let resolvedInterval = resolvedVideoAudioByIndex[clip.index],
+                    let audioTrack = clip.embeddedAudioTrack
+                else {
+                    continue
+                }
+                
+                let insertTime = CMTime(seconds: resolvedInterval.start, preferredTimescale: timelineTimescale)
+                let sourceRange = makeResolvedSourceRange(from: clip.assetInfo.sourceRange, using: resolvedInterval)
+                try compAudioTrack.insertTimeRange(sourceRange, of: audioTrack, at: insertTime)
+                params.setVolume(Float(clip.file.volume), at: insertTime)
+            }
+            
+            audioMixParams.append(params)
+        }
+        
+        for lane in explicitAudioLanes {
+            guard let compAudioTrack = composition.addMutableTrack(
+                withMediaType: .audio,
+                preferredTrackID: kCMPersistentTrackID_Invalid
+            ) else {
+                continue
+            }
+            
+            let params = AVMutableAudioMixInputParameters(track: compAudioTrack)
+            
+            for interval in lane {
+                guard let clip = loadedAudioClipsByIndex[interval.index] else {
+                    continue
+                }
+                
+                let insertTime = CMTime(seconds: interval.start, preferredTimescale: timelineTimescale)
+                try compAudioTrack.insertTimeRange(clip.assetInfo.sourceRange, of: clip.audioTrack, at: insertTime)
+                params.setVolume(Float(audio[interval.index].volume), at: insertTime)
+            }
+            
+            audioMixParams.append(params)
+        }
+        
+        videoComposition.instructions = instructions
+        
+        // Swap in the new composition — addVideoOutput attaches our pixel buffer
+        // tap so the display link can pull frames for rendering
+        let newItem = AVPlayerItem(asset: composition)
+        if !instructions.isEmpty, videoComposition.renderSize != .zero {
+            newItem.videoComposition = videoComposition
+        }
+        newItem.add(videoOutput)
+        if !audioMixParams.isEmpty {
+            let audioMix = AVMutableAudioMix()
+            audioMix.inputParameters = audioMixParams
+            newItem.audioMix = audioMix
+        }
+        player.replaceCurrentItem(with: newItem)
+        
+        setDuration(composition.duration.seconds)
+        
+        lastCompostion = composition
+        
+        // Tell the image coordinator to drop the current frame so it doesn't
+        // flash stale content while the new item loads
+        onClearCurrentFrame()
+    }
 
-    private func loadVideoClips(_ files: [VideoFileInfo]) async throws -> [LoadedVideoClip] {
+    private func loadVideoClips(
+        _ files: [VideoFileInfo]
+    ) async throws -> [LoadedVideoClip] {
         var loadedClips: [LoadedVideoClip] = []
 
         for (index, file) in files.enumerated() {
@@ -319,7 +472,9 @@ extension PlaybackPlayerCoordinator {
         return loadedClips
     }
 
-    private func loadAudioClips(_ files: [AudioFileInfo]) async throws -> [LoadedAudioClip] {
+    private func loadAudioClips(
+        _ files: [AudioFileInfo]
+    ) async throws -> [LoadedAudioClip] {
         var loadedClips: [LoadedAudioClip] = []
 
         for (index, file) in files.enumerated() {
@@ -340,172 +495,5 @@ extension PlaybackPlayerCoordinator {
         }
 
         return loadedClips
-    }
-    
-    @MainActor
-    public func replaceAllFiles(video: [VideoFileInfo], audio: [AudioFileInfo]) async throws {
-        let composition = AVMutableComposition()
-
-        let loadedVideoClips = try await loadVideoClips(video)
-        let resolvedVideoIntervals = PlaybackTimelineLayout.resolvePrimaryVideo(
-            loadedVideoClips.map { makeInterval(index: $0.index, assetInfo: $0.assetInfo) }
-        )
-        let loadedVideoClipsByIndex = Dictionary(
-            uniqueKeysWithValues: loadedVideoClips.map { ($0.index, $0) }
-        )
-
-        let loadedAudioClips = try await loadAudioClips(audio)
-        let explicitAudioLanes = PlaybackTimelineLayout.assignAudioLanes(
-            loadedAudioClips.map { makeInterval(index: $0.index, assetInfo: $0.assetInfo) }
-        )
-        let loadedAudioClipsByIndex = Dictionary(
-            uniqueKeysWithValues: loadedAudioClips.map { ($0.index, $0) }
-        )
-        
-        var instructions: [AVMutableVideoCompositionInstruction] = []
-        
-        // Build the video composition before the loop so we can set renderSize inside it
-        let videoComposition = AVMutableVideoComposition()
-        videoComposition.frameDuration = CMTime(value: 1, timescale: 30)
-        videoComposition.renderSize = .zero // will be set from the first clip's actual display size
-
-        let compVideoTrack = resolvedVideoIntervals.isEmpty
-            ? nil
-            : composition.addMutableTrack(
-                withMediaType: .video,
-                preferredTrackID: kCMPersistentTrackID_Invalid
-            )
-
-        for resolvedInterval in resolvedVideoIntervals {
-            guard
-                let compVideoTrack,
-                let clip = loadedVideoClipsByIndex[resolvedInterval.index]
-            else {
-                continue
-            }
-
-            let insertTime = CMTime(seconds: resolvedInterval.start, preferredTimescale: timelineTimescale)
-            let sourceRange = makeResolvedSourceRange(from: clip.assetInfo.sourceRange, using: resolvedInterval)
-
-            // Insert this clip's time range into the composition's single primary video track.
-            // Overlaps are trimmed ahead of time so video never layers.
-            try compVideoTrack.insertTimeRange(sourceRange, of: clip.videoTrack, at: insertTime)
-
-            // naturalSize is the raw sensor size — for portrait videos this is
-            // e.g. 1080x1920 but may be reported as 1920x1080 before transform is applied
-            let naturalSize = clip.naturalSize
-
-            // preferredTransform is the rotation metadata baked into the file by the camera.
-            // e.g. a portrait iPhone video has a 90° rotation stored here
-            let preferredTransform = clip.preferredTransform
-
-            // Decide which transform to apply to the layer:
-            // - orientation == 0: trust the asset's own metadata
-            // - otherwise: apply the user-specified rotation on top
-            let userTransform = clip.file.orientation != 0
-                ? CGAffineTransform(rotationAngle: CGFloat(clip.file.orientation) * .pi / 180)
-                : .identity
-
-            let finalTransform = preferredTransform.concatenating(userTransform)
-
-            let transformedRect = CGRect(origin: .zero, size: naturalSize).applying(finalTransform)
-            let displaySize = CGSize(
-                width: abs(transformedRect.width),
-                height: abs(transformedRect.height)
-            )
-
-            if videoComposition.renderSize == .zero {
-                videoComposition.renderSize = displaySize
-            }
-
-            var scaledTransform = finalTransform
-            if clip.file.orientation != 0, videoComposition.renderSize != .zero {
-                let renderSize = videoComposition.renderSize
-                let scaleX = renderSize.width / displaySize.width
-                let scaleY = renderSize.height / displaySize.height
-                let scale = min(scaleX, scaleY)
-
-                scaledTransform = finalTransform.scaledBy(x: scale, y: scale)
-
-                let scaledRect = CGRect(origin: .zero, size: naturalSize).applying(scaledTransform)
-                let offsetX = (renderSize.width - abs(scaledRect.width)) / 2 - scaledRect.minX
-                let offsetY = (renderSize.height - abs(scaledRect.height)) / 2 - scaledRect.minY
-                scaledTransform = scaledTransform.translatedBy(x: offsetX / scale, y: offsetY / scale)
-            }
-
-            let layerInstruction = AVMutableVideoCompositionLayerInstruction(assetTrack: compVideoTrack)
-            layerInstruction.setTransform(scaledTransform, at: insertTime)
-            layerInstruction.setTransform(.identity, at: CMTimeAdd(insertTime, sourceRange.duration))
-
-            let instruction = AVMutableVideoCompositionInstruction()
-            instruction.timeRange = CMTimeRange(start: insertTime, duration: sourceRange.duration)
-            instruction.layerInstructions = [layerInstruction]
-            instructions.append(instruction)
-        }
-
-        let resolvedVideoAudioLanes = PlaybackTimelineLayout.assignAudioLanes(
-            resolvedVideoIntervals
-        )
-        let resolvedVideoAudioByIndex = Dictionary(
-            uniqueKeysWithValues: resolvedVideoIntervals.map { ($0.index, $0) }
-        )
-
-        for lane in resolvedVideoAudioLanes {
-            guard let compAudioTrack = composition.addMutableTrack(
-                withMediaType: .audio,
-                preferredTrackID: kCMPersistentTrackID_Invalid
-            ) else {
-                continue
-            }
-
-            for interval in lane {
-                guard
-                    let clip = loadedVideoClipsByIndex[interval.index],
-                    let resolvedInterval = resolvedVideoAudioByIndex[clip.index],
-                    let audioTrack = clip.embeddedAudioTrack
-                else {
-                    continue
-                }
-
-                let insertTime = CMTime(seconds: resolvedInterval.start, preferredTimescale: timelineTimescale)
-                let sourceRange = makeResolvedSourceRange(from: clip.assetInfo.sourceRange, using: resolvedInterval)
-                try compAudioTrack.insertTimeRange(sourceRange, of: audioTrack, at: insertTime)
-            }
-        }
-
-        for lane in explicitAudioLanes {
-            guard let compAudioTrack = composition.addMutableTrack(
-                withMediaType: .audio,
-                preferredTrackID: kCMPersistentTrackID_Invalid
-            ) else {
-                continue
-            }
-
-            for interval in lane {
-                guard let clip = loadedAudioClipsByIndex[interval.index] else {
-                    continue
-                }
-
-                let insertTime = CMTime(seconds: interval.start, preferredTimescale: timelineTimescale)
-                try compAudioTrack.insertTimeRange(clip.assetInfo.sourceRange, of: clip.audioTrack, at: insertTime)
-            }
-        }
-        
-        videoComposition.instructions = instructions
-        
-        // Swap in the new composition — addVideoOutput attaches our pixel buffer
-        // tap so the display link can pull frames for rendering
-        let newItem = AVPlayerItem(asset: composition)
-        if !instructions.isEmpty, videoComposition.renderSize != .zero {
-            newItem.videoComposition = videoComposition
-        }
-        newItem.add(videoOutput)
-        player.replaceCurrentItem(with: newItem)
-
-        setDuration(composition.duration.seconds)
-
-        // Tell the image coordinator to drop the current frame so it doesn't
-        // flash stale content while the new item loads
-        onClearCurrentFrame()
     }
 }

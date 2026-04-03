@@ -39,6 +39,7 @@ class ImageContrastBooster: MetalFilter {
         for image: MTLTexture,
         factor: Float
     ) throws -> MTLTexture? {
+        guard factor >= 0 else { return nil }
         guard let pso = psoContrast,
               let out = makeOutputTexture(matching: image) else { return nil }
         
