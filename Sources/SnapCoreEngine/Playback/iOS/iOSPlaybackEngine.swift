@@ -13,7 +13,8 @@ import CoreMedia
 @Observable
 public final class PlaybackEngine {
     
-    let mediaURL: URL
+    var mediaURL: URL
+    public var hasLoaded = false
     
     private var isInPlayableArea: Bool {
         return progress >= start && progress <= end
@@ -44,11 +45,22 @@ public final class PlaybackEngine {
     public var imageCoordinator : PlaybackImageCoordinator
     public var playerCoordinator : PlaybackPlayerCoordinator
 
-    public init(url: URL) {
-        mediaURL = url
+    public init() {
+        let url = URL(fileURLWithPath: "/dev/null") // temp dummy
+        let image = PlaybackImageCoordinator(url: url)
+        let player = PlaybackPlayerCoordinator(
+            url: url,
+            videoOutput: image.videoOutput
+        )
         
+        self.mediaURL = url
+        self.playerCoordinator = player
+        self.imageCoordinator = image
+    }
+    
+    public init(url: URL) {
         let imageCoordinator = PlaybackImageCoordinator(
-            url: mediaURL
+            url: url
         )
         let playerCoordinator = PlaybackPlayerCoordinator(
             url: url,
@@ -58,12 +70,31 @@ public final class PlaybackEngine {
         self.imageCoordinator = imageCoordinator
         self.playerCoordinator = playerCoordinator
         
+        self.mediaURL = url
         self.imageCoordinator.assign(to: playerCoordinator.player)
         self.imageCoordinator.startRendering()
         self.playerCoordinator.onClearCurrentFrame = { [weak self] in
             guard let self else { return }
             self.imageCoordinator.clearCurrentFrame()
         }
+        hasLoaded = true
+    }
+    
+    public func load(url: URL) {
+        self.mediaURL = url
+        
+        let imageCoordinator = PlaybackImageCoordinator(url: url)
+        let playerCoordinator = PlaybackPlayerCoordinator(
+            url: url,
+            videoOutput: imageCoordinator.videoOutput
+        )
+        
+        self.imageCoordinator = imageCoordinator
+        self.playerCoordinator = playerCoordinator
+        
+        imageCoordinator.assign(to: playerCoordinator.player)
+        imageCoordinator.startRendering()
+        hasLoaded = true
     }
     
     public func play() {
