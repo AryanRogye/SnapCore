@@ -44,6 +44,7 @@ public final class PlaybackImageCoordinator {
     public var kernelSize: CGFloat = 3.0
     
     let imageProcessor = ImageProcessor()
+    let frameCache = FrameCache()
     
     init(url: URL) {
         self.mediaURL = url

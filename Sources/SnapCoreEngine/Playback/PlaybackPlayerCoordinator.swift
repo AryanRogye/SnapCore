@@ -203,8 +203,32 @@ public final class PlaybackPlayerCoordinator {
         player.pause()
     }
     
-    public func seek(to time: CMTime) {
-        player.seek(to: time, toleranceBefore: .zero, toleranceAfter: CMTime(value: 1, timescale: 60))
+    public func seek(
+        to time: CMTime,
+        completion: ((Bool) -> Void)? = nil
+    ) {
+        player.seek(
+            to: time,
+            toleranceBefore: .zero,
+            toleranceAfter: .zero
+        ) { finished in
+            completion?(finished)
+        }
+    }
+    
+    public func previewSeek(
+        to time: CMTime,
+        tolerance: CMTime = CMTime(value: 1, timescale: 30),
+        completion: ((Bool) -> Void)? = nil
+    ) {
+        player.currentItem?.cancelPendingSeeks()
+        player.seek(
+            to: time,
+            toleranceBefore: tolerance,
+            toleranceAfter: tolerance
+        ) { finished in
+            completion?(finished)
+        }
     }
 }
 

@@ -15,6 +15,7 @@ public final class PlaybackEngine {
     
     var mediaURL: URL
     public var hasLoaded = false
+    private var previewSeekGeneration: UInt = 0
     
     private var isInPlayableArea: Bool {
         return progress >= start && progress <= end
@@ -103,8 +104,38 @@ public final class PlaybackEngine {
     public func pause() {
         playerCoordinator.pause()
     }
+    
+    public func previewSeek(to time: CMTime) {
+        previewSeekGeneration &+= 1
+        let generation = previewSeekGeneration
+        
+        playerCoordinator.previewSeek(to: time) { [weak self] finished in
+            guard finished, let self else { return }
+            
+            Task { @MainActor in
+                guard generation == self.previewSeekGeneration else { return }
+                
+                self.imageCoordinator.refreshCurrentFrame(
+                    at: self.playerCoordinator.player.currentTime(),
+                    fallbackAsset: self.playerCoordinator.player.currentItem?.asset
+                )
+            }
+        }
+    }
+    
     public func seek(to time: CMTime) {
-        playerCoordinator.seek(to: time)
+        previewSeekGeneration &+= 1
+        
+        playerCoordinator.seek(to: time) { [weak self] finished in
+            guard finished, let self else { return }
+
+            Task { @MainActor in
+                self.imageCoordinator.refreshCurrentFrame(
+                    at: self.playerCoordinator.player.currentTime(),
+                    fallbackAsset: self.playerCoordinator.player.currentItem?.asset
+                )
+            }
+        }
     }
     public func stop() {
         playerCoordinator.pause()
