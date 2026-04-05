@@ -12,7 +12,6 @@ import UIKit
 
 @Observable
 public final class PlaybackImageCoordinator {
-    private let mediaURL : URL
     /// both iOS and macOS player's need this so must remain public
     private(set) var videoOutput: AVPlayerItemVideoOutput
     
@@ -46,8 +45,7 @@ public final class PlaybackImageCoordinator {
     let imageProcessor = ImageProcessor()
     let frameCache = FrameCache()
     
-    init(url: URL) {
-        self.mediaURL = url
+    init() {
         let settings: [String: Any] = [
             kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32BGRA
         ]

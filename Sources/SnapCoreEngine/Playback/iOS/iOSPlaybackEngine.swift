@@ -48,7 +48,7 @@ public final class PlaybackEngine {
 
     public init() {
         let url = URL(fileURLWithPath: "/dev/null") // temp dummy
-        let image = PlaybackImageCoordinator(url: url)
+        let image = PlaybackImageCoordinator()
         let player = PlaybackPlayerCoordinator(
             url: url,
             videoOutput: image.videoOutput
@@ -60,9 +60,7 @@ public final class PlaybackEngine {
     }
     
     public init(url: URL) {
-        let imageCoordinator = PlaybackImageCoordinator(
-            url: url
-        )
+        let imageCoordinator = PlaybackImageCoordinator()
         let playerCoordinator = PlaybackPlayerCoordinator(
             url: url,
             videoOutput: imageCoordinator.videoOutput
@@ -84,7 +82,7 @@ public final class PlaybackEngine {
     public func load(url: URL) {
         self.mediaURL = url
         
-        let imageCoordinator = PlaybackImageCoordinator(url: url)
+        let imageCoordinator = PlaybackImageCoordinator()
         let playerCoordinator = PlaybackPlayerCoordinator(
             url: url,
             videoOutput: imageCoordinator.videoOutput

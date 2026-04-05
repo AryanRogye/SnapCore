@@ -6,10 +6,8 @@
 //
 
 import CoreImage
-import AVFoundation
 
 #if os(iOS)
-
 extension PlaybackImageCoordinator {
     
     private static let ciContext = CIContext(mtlDevice: MetalContext.shared.device)
