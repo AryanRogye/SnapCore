@@ -5,16 +5,41 @@
 //  Created by Aryan Rogye on 3/19/26.
 //
 
-#if os(macOS)
 import Accelerate
+#if os(macOS)
 import AppKit
+#elseif os(iOS)
+import UIKit
+#endif
 
-final class ImageColorProcessor {
+public final class ImageColorProcessor {
     
-    public func getDominantColor(from image: NSImage) -> NSColor? {
+#if os(macOS)
+    public typealias Color = NSColor
+#elseif os(iOS)
+    public typealias Color = UIColor
+#endif
+    
+#if os(macOS)
+    public typealias Image = NSImage
+#elseif os(iOS)
+    public typealias Image = UIImage
+#endif
+    
+    public init() {
+        
+    }
+
+    public func getDominantColor(from image: Image) -> Color? {
+        #if os(macOS)
         guard let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
             return nil
         }
+        #elseif os(iOS)
+        guard let cgImage = image.cgImage else {
+            return nil
+        }
+        #endif
         return getDominantColor(from: cgImage)
     }
     
@@ -24,7 +49,7 @@ final class ImageColorProcessor {
      * - Parameter image: The NSImage to analyze.
      * - Returns: The dominant NSColor, or nil if extraction fails.
      */
-    public func getDominantColor(from cgImage: CGImage) -> NSColor? {
+    public func getDominantColor(from cgImage: CGImage) -> Color? {
         // Use vImage for fast resizing (part of Accelerate framework)
         let targetSize = CGSize(width: 1, height: 1)
         
@@ -47,7 +72,6 @@ final class ImageColorProcessor {
         // Apply brightness adjustment
         return adjustBrightness(red: red, green: green, blue: blue, alpha: alpha)
     }
-    
     /**
      * Ultra-fast image resizing using vImage (Accelerate framework)
      */
@@ -114,7 +138,7 @@ extension ImageColorProcessor {
         green: CGFloat,
         blue: CGFloat,
         alpha: CGFloat
-    ) -> NSColor {
+    ) -> Color {
         var adjustedRed = red
         var adjustedGreen = green
         var adjustedBlue = blue
@@ -128,7 +152,10 @@ extension ImageColorProcessor {
             adjustedBlue = min(blue * scale, 1.0)
         }
         
+        #if os(macOS)
         return NSColor(red: adjustedRed, green: adjustedGreen, blue: adjustedBlue, alpha: alpha)
+        #elseif os(iOS)
+        return UIColor(red: adjustedRed, green: adjustedGreen, blue: adjustedBlue, alpha: alpha)
+        #endif
     }
 }
-#endif
