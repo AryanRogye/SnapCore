@@ -31,21 +31,21 @@ public final class ImageProcessor {
     
     public func process(
         _ texture: MTLTexture,
-        cursorTexture: MTLTexture?,
+        cursorTexture: MTLTexture? = nil,
         isLanczosUpscalingEnabled: Bool,
         isContrastEnabled: Bool,
         isSharpeningEnabled: Bool,
         isStichingCursorEnabled: Bool,
-        frame: CGRect?,
+        frame: CGRect? = nil,
         lanczosScale: CGFloat,
-        kernelSize: CGFloat,
+        kernelSize: Int,
         contrast: CGFloat,
         sharpness: CGFloat,
         sharpnessRadius: Int = 1,
         sharpnessDetail: CGFloat = 0.1,
-        currentMouse: CurrentMouseInfo?,
-        cursorShadowConfig: CursorShadowConfig?,
-        cursorMotionState: CursorMotionState?,
+        currentMouse: CurrentMouseInfo? = nil,
+        cursorShadowConfig: CursorShadowConfig? = nil,
+        cursorMotionState: CursorMotionState? = nil,
         statusCompletionHandler: @escaping (String) -> Void = { _ in }
     ) -> ImageProcessorResult {
         return process(texture,
@@ -77,7 +77,7 @@ public final class ImageProcessor {
         isStichingCursorEnabled: Bool,
         frame: CGRect?,
         lanczosScale: CGFloat,
-        kernelSize: CGFloat,
+        kernelSize: Int,
         contrast: CGFloat,
         sharpness: CGFloat,
         sharpnessRadius: Int = 1,
@@ -183,7 +183,7 @@ extension ImageProcessor {
     private func getLanczosUpscaled(
         _ image: MTLTexture,
         lanczosScale: CGFloat,
-        kernelSize: CGFloat,
+        kernelSize: Int,
         isEnabled: Bool
     ) -> MTLTexture? {
         guard isEnabled else {
@@ -192,7 +192,7 @@ extension ImageProcessor {
         return lanczosUpscaler.upscale(
             image,
             lanczosScale: Float(lanczosScale),
-            kernelSize: Int(kernelSize)
+            kernelSize: kernelSize
             
         )
     }

@@ -20,6 +20,12 @@ kernel void adjustContrast(
 {
     float factor = uniforms.factor;
     float4 color = inTexture.read(gid);
-    float4 adjusted = (color - 0.5) * factor + 0.5;
+    
+    float multiplier = (factor >= 0)
+    ? 1.0 + (factor / 100.0)
+    : 1.0 / (1.0 + (-factor / 100.0));
+    
+    float4 adjusted = (color - 0.5) * multiplier + 0.5;
+    
     outTexture.write(saturate(adjusted), gid);
 }

@@ -35,7 +35,7 @@ extension PlaybackImageCoordinator {
             isStichingCursorEnabled: false,
             frame: nil,
             lanczosScale: lanczosScale,
-            kernelSize: kernelSize,
+            kernelSize: Int(kernelSize),
             contrast: contrast,
             sharpness: sharpness,
             currentMouse: nil,
