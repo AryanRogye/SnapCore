@@ -41,9 +41,12 @@ public final class ImageProcessor {
         kernelSize: CGFloat,
         contrast: CGFloat,
         sharpness: CGFloat,
+        sharpnessRadius: Int = 1,
+        sharpnessDetail: CGFloat = 0.1,
         currentMouse: CurrentMouseInfo?,
         cursorShadowConfig: CursorShadowConfig?,
         cursorMotionState: CursorMotionState?,
+        statusCompletionHandler: @escaping (String) -> Void = { _ in }
     ) -> ImageProcessorResult {
         return process(texture,
                        cursorTexture: cursorTexture,
@@ -56,9 +59,12 @@ public final class ImageProcessor {
                        kernelSize: kernelSize,
                        contrast: contrast,
                        sharpness: sharpness,
+                       sharpnessRadius: sharpnessRadius,
+                       sharpnessDetail: sharpnessDetail,
                        currentMouse: currentMouse,
                        cursorShadowConfig: cursorShadowConfig ?? CursorShadowConfig(),
-                       cursorMotionState: cursorMotionState ?? CursorMotionState()
+                       cursorMotionState: cursorMotionState ?? CursorMotionState(),
+                       statusCompletionHandler: statusCompletionHandler
         )
     }
     
@@ -74,9 +80,12 @@ public final class ImageProcessor {
         kernelSize: CGFloat,
         contrast: CGFloat,
         sharpness: CGFloat,
+        sharpnessRadius: Int = 1,
+        sharpnessDetail: CGFloat = 0.1,
         currentMouse: CurrentMouseInfo?,
         cursorShadowConfig: CursorShadowConfig,
         cursorMotionState: CursorMotionState,
+        statusCompletionHandler:  @escaping (String) -> Void = { _ in }
     ) -> ImageProcessorResult {
         var result = ImageProcessorResult(original: texture)
         
@@ -88,6 +97,9 @@ public final class ImageProcessor {
             isEnabled: isLanczosUpscalingEnabled
         )
         result.LanczosTexture = lanczos
+        if isLanczosUpscalingEnabled {
+            statusCompletionHandler("Lanczos Upscaling Result: \(lanczos != nil) - \(lanczosScale) Scale - \(kernelSize) Kernel Size")
+        }
         
         // step 2 would be the Lanczos Upscaling
         let contrasted = self.getContrastedImage(
@@ -96,14 +108,22 @@ public final class ImageProcessor {
             isEnabled: isContrastEnabled
         )
         result.contrastTexture = contrasted
+        if isContrastEnabled {
+            statusCompletionHandler("Contrast Result: \(contrasted != nil) - \(contrast) contrast")
+        }
         
         // step 3 would be the sharpness
         let sharpened = self.getSharpenedImage(
             contrasted ?? lanczos ?? texture,
             sharpness: sharpness,
+            sharpnessRadius: sharpnessRadius,
+            sharpnessDetail: sharpnessDetail,
             isEnabled: isSharpeningEnabled
         )
         result.sharpeningTexture = sharpened
+        if isSharpeningEnabled {
+            statusCompletionHandler("Sharpness Result: \(sharpened != nil) - \(sharpness) sharpness \(sharpnessRadius) radius \(sharpnessDetail) detail")
+        }
         
         // step 4 would be the cursor stiching
         let stiched = self.getCursoredImage(
@@ -204,13 +224,20 @@ extension ImageProcessor {
     private func getSharpenedImage(
         _ image: MTLTexture,
         sharpness: CGFloat,
+        sharpnessRadius: Int,
+        sharpnessDetail: CGFloat,
         isEnabled: Bool
     ) -> MTLTexture? {
         guard isEnabled else {
             return nil
         }
         do {
-            return try imageSharpener.sharpen(image, sharpness: Float(sharpness))
+            return try imageSharpener.sharpen(
+                image,
+                sharpness: Float(sharpness),
+                radius: sharpnessRadius,
+                detail: Float(sharpnessDetail)
+            )
         } catch {
             print("Error sharpening image: \(error)")
             return nil

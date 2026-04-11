@@ -13,6 +13,33 @@ template<int N>
 struct KernelNxN {
     float4 v[N][N];
     
+    float4 applyGaussian(float sigma) {
+        float weights[N][N];
+        float totalWeight = 0.0;
+        int radius = N / 2;
+        
+        /// Looping Through the kernel
+        for (int r = 0; r < N; r++) {
+            for (int c = 0; c < N; c++) {
+                
+                /// Offset from the center
+                /// closer pixels get higher weight, farther ones get lower
+                float x = float(c - radius);
+                float y = float(r - radius);
+
+                float w = exp(-(x*x + y*y) / (2.0 * sigma * sigma));
+                weights[r][c] = w;
+                totalWeight += w;
+            }
+        }
+        
+        for (int r = 0; r < N; r++)
+            for (int c = 0; c < N; c++)
+                weights[r][c] /= totalWeight;
+
+        return clamp(convolve(weights), 0.0, 1.0);
+    }
+
     void load(texture2d<float, access::read> tex, uint2 gid, uint width, uint height) {
         int radius = N / 2;
         

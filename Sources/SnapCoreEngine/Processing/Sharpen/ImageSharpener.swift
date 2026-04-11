@@ -12,6 +12,8 @@ import CoreImage
 
 private struct SharpenUniforms: MetalUniform {
     var sharpness: Float
+    var radius: Int
+    var detail: Float
 }
 
 final class ImageSharpener: MetalFilter {
@@ -37,7 +39,9 @@ final class ImageSharpener: MetalFilter {
 
     public func sharpen(
         _ image: MTLTexture,
-        sharpness: Float = 0.0
+        sharpness: Float = 0.0,
+        radius: Int = 1,
+        detail: Float = 0.1,
     ) throws -> MTLTexture? {
         
         guard let pso = psoSharpen,
@@ -45,6 +49,8 @@ final class ImageSharpener: MetalFilter {
         
         var uniforms = SharpenUniforms(
             sharpness: sharpness,
+            radius: radius,
+            detail: detail
         )
         
         return dispatch(
