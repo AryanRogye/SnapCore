@@ -57,6 +57,8 @@ let package = Package(
                 .copy("Processing/Sharpen/Sharpen.metal"),
                 .copy("Processing/Cursor/Cursor.metal"),
                 .copy("Processing/Lanczos/Lanczos.metal"),
+                .copy("Processing/Exposure/Exposure.metal"),
+                .copy("Processing/Blur/Blur.metal"),
                 .copy("Processing/KernelNxN.metalh")
             ]
         ),

@@ -93,7 +93,7 @@ kernel void sharpen_kernel(
         KernelNxN<3> k;
         k.load(inTexture, gid, width, height);
         blur = k.applyGaussian(sigma);
-        original = k.v[diameter/2][diameter/2];
+        original = k.v[1][1];
     }
     
     float4 detail = original - blur;

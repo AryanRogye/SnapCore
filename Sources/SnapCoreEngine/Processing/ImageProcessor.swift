@@ -10,8 +10,9 @@ import MetalKit
 public struct ImageProcessorResult {
     public var original: MTLTexture
     public var LanczosTexture: MTLTexture?
-    public var contrastTexture: MTLTexture?
     public var exposureTexture: MTLTexture?
+    public var contrastTexture: MTLTexture?
+    public var blurTexture: MTLTexture?
     public var sharpeningTexture: MTLTexture?
     /// this would be the output texture
     public var stitchingCursorTexture: MTLTexture?
@@ -28,6 +29,7 @@ public final class ImageProcessor {
     let imageContrastBooster = ImageContrastBooster()
     let imageSharpener = ImageSharpener()
     let exposureAdjuster = ImageExposureAdjuster()
+    let imageBlurrer = ImageBlurrer()
     
     public init() { }
     
@@ -38,12 +40,15 @@ public final class ImageProcessor {
         isContrastEnabled: Bool,
         isExposureEnabled: Bool,
         isSharpeningEnabled: Bool,
+        isBlurEnabled: Bool,
         isStichingCursorEnabled: Bool,
         frame: CGRect? = nil,
         lanczosScale: CGFloat,
         kernelSize: Int,
         contrast: CGFloat,
         exposure: CGFloat,
+        blur: Int,
+        blurDetail: CGFloat,
         sharpness: CGFloat,
         sharpnessRadius: Int = 1,
         sharpnessDetail: CGFloat = 0.1,
@@ -58,12 +63,15 @@ public final class ImageProcessor {
                        isContrastEnabled: isContrastEnabled,
                        isExposureEnabled: isExposureEnabled,
                        isSharpeningEnabled: isSharpeningEnabled,
+                       isBlurEnabled: isBlurEnabled,
                        isStichingCursorEnabled: isStichingCursorEnabled,
                        frame: frame,
                        lanczosScale: lanczosScale,
                        kernelSize: kernelSize,
                        contrast: contrast,
                        exposure: exposure,
+                       blur: blur,
+                       blurDetail: blurDetail,
                        sharpness: sharpness,
                        sharpnessRadius: sharpnessRadius,
                        sharpnessDetail: sharpnessDetail,
@@ -81,12 +89,15 @@ public final class ImageProcessor {
         isContrastEnabled: Bool,
         isExposureEnabled: Bool,
         isSharpeningEnabled: Bool,
+        isBlurEnabled: Bool,
         isStichingCursorEnabled: Bool,
         frame: CGRect?,
         lanczosScale: CGFloat,
         kernelSize: Int,
         contrast: CGFloat,
         exposure: CGFloat,
+        blur: Int,
+        blurDetail: CGFloat,
         sharpness: CGFloat,
         sharpnessRadius: Int = 1,
         sharpnessDetail: CGFloat = 0.1,
@@ -116,7 +127,7 @@ public final class ImageProcessor {
             isEnabled: isExposureEnabled
         )
         result.exposureTexture = exposured
-        if isExposureEnabled {
+        if isExposureEnabled && exposure > 0 {
             statusCompletionHandler("Exposure Result: \(exposured != nil) - \(exposure) exposure")
         }
         
@@ -127,13 +138,25 @@ public final class ImageProcessor {
             isEnabled: isContrastEnabled
         )
         result.contrastTexture = contrasted
-        if isContrastEnabled {
+        if isContrastEnabled && contrast > 0 {
             statusCompletionHandler("Contrast Result: \(contrasted != nil) - \(contrast) contrast")
+        }
+        
+        /// Blur
+        let blurred = self.getBlurredImage(
+            contrasted ?? exposured ?? lanczos ?? texture,
+            radius: blur,
+            detail: blurDetail,
+            isEnabled: isBlurEnabled
+        )
+        result.blurTexture = blurred
+        if isBlurEnabled {
+            statusCompletionHandler("Blur Result: \(blurred != nil) - \(blur) blur \(blurDetail) detail")
         }
         
         // step 4 would be the sharpness
         let sharpened = self.getSharpenedImage(
-            contrasted ?? exposured ?? lanczos ?? texture,
+            blurred ?? contrasted ?? exposured ?? lanczos ?? texture,
             sharpness: sharpness,
             sharpnessRadius: sharpnessRadius,
             sharpnessDetail: sharpnessDetail,
@@ -146,7 +169,7 @@ public final class ImageProcessor {
         
         // step 5 would be the cursor stiching
         let stiched = self.getCursoredImage(
-            sharpened ?? contrasted ?? exposured ?? lanczos ?? texture,
+            sharpened ?? blurred ?? contrasted ?? exposured ?? lanczos ?? texture,
             cursorTexture: cursorTexture,
             currentMouse: currentMouse,
             cursorShadowConfig: cursorShadowConfig,
@@ -252,6 +275,31 @@ extension ImageProcessor {
             return try exposureAdjuster.adjustExposure(for: image, factor: Float(factor))
         } catch {
             print("Error applying exposure: \(error)")
+            return nil
+        }
+    }
+    
+    /**
+     * Function Checks to make sure that we're adjusting blur if we're not we return nil
+     * or else we try to get the sharpness
+     */
+    private func getBlurredImage(
+        _ image: MTLTexture,
+        radius: Int,
+        detail: CGFloat,
+        isEnabled: Bool
+    ) -> MTLTexture? {
+        guard isEnabled else {
+            return nil
+        }
+        do {
+            return try imageBlurrer.applyBlur(
+                for: image,
+                radius: radius,
+                detail: Float(detail)
+            )
+        } catch {
+            print("Error sharpening image: \(error)")
             return nil
         }
     }

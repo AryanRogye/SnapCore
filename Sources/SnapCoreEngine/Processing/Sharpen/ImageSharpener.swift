@@ -12,7 +12,7 @@ import CoreImage
 
 private struct SharpenUniforms: MetalUniform {
     var sharpness: Float
-    var radius: Int
+    var radius: Int32
     var detail: Float
 }
 
@@ -49,7 +49,7 @@ final class ImageSharpener: MetalFilter {
         
         var uniforms = SharpenUniforms(
             sharpness: sharpness,
-            radius: radius,
+            radius: Int32(radius),
             detail: detail
         )
         

@@ -9,7 +9,7 @@ import Metal
 
 private struct LanczosUniforms: MetalUniform {
     var scale: Float
-    var kernelSize: Int
+    var kernelSize: Int32
 }
 
 final class LanczosUpscaler: MetalFilter {
@@ -42,7 +42,7 @@ final class LanczosUpscaler: MetalFilter {
         
         var uniforms = LanczosUniforms(
             scale: lanczosScale,
-            kernelSize: kernelSize
+            kernelSize: Int32(kernelSize)
         )
         
         return dispatch(
