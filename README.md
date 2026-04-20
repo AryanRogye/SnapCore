@@ -581,7 +581,7 @@ struct ExportButton: View {
 
 ### Engine livestream decoding example
 
-`SnapCoreEngine` does not ship peer discovery or transport, but it does support streaming encoded video into any `OutputStream` and decoding it back from any `InputStream`. The `Phmirror` app uses `MultipeerConnectivity` to provide those streams.
+`SnapCoreEngine` does not ship peer discovery or transport, but it does support streaming encoded video into any `OutputStream` and decoding it back from any `InputStream`. The [Phmirror]("https://github.com/AryanRogye/PHMirror") app uses `MultipeerConnectivity` to provide those streams.
 
 macOS host side:
 
