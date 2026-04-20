@@ -220,6 +220,65 @@ recorder.onScreenFrame = { [weak self] sample in
   - `takeScreenshot(of: NSScreen, croppingTo: CGRect) async -> CGImage?`: captures a specific display and returns a cropped `CGImage` (coordinates in points, auto-mapped to pixels).
   - `static screenUnderMouse() -> NSScreen?`: convenience helper returning the display under the current mouse location.
 
+## Camera Capture
+
+`SnapCore` also includes a camera capture service (`CameraCaptureService`) for live video frames.
+
+### Quick start
+
+```swift
+import AVFoundation
+import CoreImage
+import SnapCore
+
+let camera = CameraCaptureService()
+let ciContext = CIContext()
+
+Task {
+    // 1) Request/check camera access
+    guard await camera.isAuthorized() else {
+        print("Camera permission required")
+        return
+    }
+
+    // 2) Receive BGRA pixel buffers
+    await camera.setOnPixelBuffer { pixelBuffer in
+        let ciImage = CIImage(cvPixelBuffer: pixelBuffer)
+        _ = ciContext.createCGImage(ciImage, from: ciImage.extent)
+        // update preview / processing pipeline
+    }
+
+    // 3) Start camera (front or back)
+    do {
+        try await camera.startCamera(
+            .builtInWideAngleCamera,
+            cameraPosition: .front
+        )
+    } catch {
+        print("Failed to start camera: \(error)")
+    }
+}
+
+// Later, stop camera
+Task {
+    await camera.stopCamera()
+}
+```
+
+### Camera API reference
+
+- `CameraCaptureService`
+  - `isAuthorized() async -> Bool`: checks/request camera permission.
+  - `setOnPixelBuffer(_:) async`: sets the frame callback.
+  - `startCamera(_:cameraPosition:) async throws`: starts capture for a device type and position.
+  - `stopCamera() async`: stops capture and tears down session I/O.
+  - `focus(at:in:) async`: focuses/exposes around a point in view coordinates.
+  - `getSession() async -> AVCaptureSession?`: returns the current capture session.
+
+- `CameraPosition`
+  - `.front`
+  - `.back`
+
 ## SnapCoreEngine
 
 `SnapCoreEngine` is the higher-level package target that currently contains:
@@ -227,7 +286,7 @@ recorder.onScreenFrame = { [weak self] sample in
 - recording coordination
 - playback coordination
 - export helpers
-- Metal-backed image sharpening and contrast adjustment
+- Metal-backed image processing (lanczos upscaling, exposure, contrast, blur, sharpening, cursor compositing)
 
 The target now bundles its Metal shader files internally. Apps using `SnapCoreEngine` do not need to add `.metal` files to their app target or configure a separate Metal resource bundle.
 
@@ -357,6 +416,7 @@ struct TimelineVideoClip {
     let sourceDuration: Double
     let timelineStart: Double
     let orientation: Int
+    let volume: CGFloat
 }
 
 struct TimelineAudioClip {
@@ -366,6 +426,7 @@ struct TimelineAudioClip {
     let sourceDuration: Double
     let timelineStart: Double
     let orientation: Int
+    let volume: CGFloat
 }
 
 @Observable
@@ -376,7 +437,8 @@ final class EditingViewModel {
 
     init(url: URL) {
         self.mediaURL = url
-        self.playbackEngine = PlaybackEngine(url: url)
+        self.playbackEngine = PlaybackEngine()
+        self.playbackEngine.load(url: url)
     }
 
     func reloadTimeline(
@@ -389,7 +451,8 @@ final class EditingViewModel {
                 start: $0.trimIn / $0.sourceDuration,
                 end: $0.trimOut / $0.sourceDuration,
                 timelineStart: $0.timelineStart,
-                orientation: $0.orientation
+                orientation: $0.orientation,
+                volume: $0.volume
             )
         }
 
@@ -399,7 +462,8 @@ final class EditingViewModel {
                 start: $0.trimIn / $0.sourceDuration,
                 end: $0.trimOut / $0.sourceDuration,
                 timelineStart: $0.timelineStart,
-                orientation: $0.orientation
+                orientation: $0.orientation,
+                volume: $0.volume
             )
         }
 
@@ -574,7 +638,8 @@ The stream transport layer is app-owned. `Phmirror` uses `MultipeerConnectivity`
 - Audio: When `capturesAudio` is `true`, audio sample buffers are delivered. You are responsible for mixing/muxing.
 - Frame rate: pass `fps` to `startRecording()` to choose `30`, `60`, or `120` FPS. The default is `.fps120`.
 - File output: call `prepareRecordingOutput(url:)` before `startRecording()` if you want ScreenCaptureKit to write a `.mov`, `.mp4`, or `.m4v` file directly.
-- iOS playback: `PlaybackEngine(url:)` is the iOS entry point for loading a media file or editor timeline.
+- iOS playback: you can initialize with `PlaybackEngine(url:)` or use `PlaybackEngine()` then `load(url:)`.
+- iOS scrubbing: use `previewSeek(to:)` for lightweight timeline preview seeks, and `seek(to:)` for committed seeks.
 - Timeline playback: `replaceAllFiles(video:audio:)` is `@MainActor`; video stays single-lane while audio clips can layer.
 - Livestreaming: `RecordingConfig.livestream(OutputStream)` writes encoded frames to an app-provided stream, and `LiveFileWritingDecoder` reconstructs frames from an `InputStream`.
 - Metal: `SnapCoreEngine` compiles its bundled shader sources internally from package resources. Consumer apps do not need extra Metal-specific setup beyond running on a Metal-capable Mac.
