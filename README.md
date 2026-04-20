@@ -581,7 +581,7 @@ struct ExportButton: View {
 
 ### Engine livestream decoding example
 
-`SnapCoreEngine` does not ship peer discovery or transport, but it does support streaming encoded video into any `OutputStream` and decoding it back from any `InputStream`. The [Phmirror]("https://github.com/AryanRogye/PHMirror") app uses `MultipeerConnectivity` to provide those streams.
+`SnapCoreEngine` does not ship peer discovery or transport, but it does support streaming encoded video into any `OutputStream` and decoding it back from any `InputStream`. The [PHMirror](https://github.com/AryanRogye/PHMirror) app uses `MultipeerConnectivity` to provide those streams.
 
 macOS host side:
 
@@ -627,7 +627,7 @@ final class StreamViewModel {
 }
 ```
 
-The stream transport layer is app-owned. `Phmirror` uses `MultipeerConnectivity`, but any source that gives you an `OutputStream`/`InputStream` pair works. On macOS, the decoder API is the same, but you would usually convert the `CGImage` into an `NSImage` instead of a `UIImage`.
+The stream transport layer is app-owned. [PHMirror](https://github.com/AryanRogye/PHMirror) uses `MultipeerConnectivity`, but any source that gives you an `OutputStream`/`InputStream` pair works. On macOS, the decoder API is the same, but you would usually convert the `CGImage` into an `NSImage` instead of a `UIImage`.
 
 ### Notes & caveats
 
