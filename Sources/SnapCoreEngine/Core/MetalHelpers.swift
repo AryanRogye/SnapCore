@@ -8,6 +8,7 @@
 import Metal
 import MetalKit
 import CoreImage
+import SwiftUI
 
 public enum MetalHelperError: Error {
     case invalidTextureCache
@@ -81,5 +82,85 @@ public struct MetalHelpers {
         )
         
         return tex
+    }
+    
+    static func getPixels(from texture: MTLTexture) -> [SIMD4<Float>] {
+        let width = texture.width
+        let height = texture.height
+        let pixelCount = width * height
+        
+        switch texture.pixelFormat {
+            
+        case .rgba32Float:
+            let bytesPerRow = width * 16
+            var raw = [Float](repeating: 0, count: pixelCount * 4)
+            texture.getBytes(&raw, bytesPerRow: bytesPerRow,
+                             from: MTLRegionMake2D(0, 0, width, height), mipmapLevel: 0)
+            return stride(from: 0, to: raw.count, by: 4).map {
+                SIMD4<Float>(raw[$0], raw[$0+1], raw[$0+2], raw[$0+3])
+            }
+            
+        case .bgra8Unorm, .bgra8Unorm_srgb:
+            let bytesPerRow = width * 4
+            var raw = [UInt8](repeating: 0, count: pixelCount * 4)
+            texture.getBytes(&raw, bytesPerRow: bytesPerRow,
+                             from: MTLRegionMake2D(0, 0, width, height), mipmapLevel: 0)
+            return stride(from: 0, to: raw.count, by: 4).map {
+                // bgra order → remap to xyzw = rgba
+                SIMD4<Float>(
+                    Float(raw[$0+2]) / 255.0,  // R
+                    Float(raw[$0+1]) / 255.0,  // G
+                    Float(raw[$0])   / 255.0,  // B
+                    Float(raw[$0+3]) / 255.0   // A
+                )
+            }
+            
+        case .rgba8Unorm, .rgba8Unorm_srgb:
+            let bytesPerRow = width * 4
+            var raw = [UInt8](repeating: 0, count: pixelCount * 4)
+            texture.getBytes(&raw, bytesPerRow: bytesPerRow,
+                             from: MTLRegionMake2D(0, 0, width, height), mipmapLevel: 0)
+            return stride(from: 0, to: raw.count, by: 4).map {
+                SIMD4<Float>(
+                    Float(raw[$0])   / 255.0,
+                    Float(raw[$0+1]) / 255.0,
+                    Float(raw[$0+2]) / 255.0,
+                    Float(raw[$0+3]) / 255.0
+                )
+            }
+            
+        default:
+            assertionFailure("getPixels: unhandled pixel format \(texture.pixelFormat.rawValue)")
+            return []
+        }
+    }
+    
+    /**
+     * Not using bug gonna keep, issue is that if we're in dark mode or light mode,
+     * processing the "color" gets weird results
+     */
+    public static func getColors(from texture: MTLTexture) -> [Color] {
+        let width = texture.width
+        let height = texture.height
+        let bytesPerRow = width * 4
+        var pixels = [UInt8](repeating: 0, count: width * height * 4)
+        
+        texture.getBytes(
+            &pixels,
+            bytesPerRow: bytesPerRow,
+            from: MTLRegion(origin: .init(x: 0, y: 0, z: 0),
+                            size: .init(width: width, height: height, depth: 1)),
+            mipmapLevel: 0
+        )
+        
+        return stride(from: 0, to: pixels.count, by: 4).map { i in
+            Color(
+                .sRGB,
+                red:     Double(pixels[i])     / 255,
+                green:   Double(pixels[i + 1]) / 255,
+                blue:    Double(pixels[i + 2]) / 255,
+                opacity: Double(pixels[i + 3]) / 255
+            )
+        }
     }
 }
