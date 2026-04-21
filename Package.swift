@@ -59,6 +59,7 @@ let package = Package(
                 .copy("Processing/Lanczos/Lanczos.metal"),
                 .copy("Processing/Exposure/Exposure.metal"),
                 .copy("Processing/Blur/Blur.metal"),
+                .copy("Processing/Illumination/Illuminance.metal"),
                 .copy("Processing/KernelNxN.metalh")
             ]
         ),

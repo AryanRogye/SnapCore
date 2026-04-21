@@ -45,7 +45,8 @@ public final class MetalContext {
             ("Cursor", "metal", "Processing/Cursor"),
             ("Lanczos", "metal", "Processing/Lanczos"),
             ("Exposure", "metal", "Processing/Exposure"),
-            ("Blur", "metal", "Processing/Blur")
+            ("Blur", "metal", "Processing/Blur"),
+            ("Illuminance", "metal", "Processing/Illumination")
         ]
         
         let source = (

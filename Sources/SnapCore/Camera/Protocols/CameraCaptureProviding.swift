@@ -31,6 +31,7 @@ public protocol CameraCaptureProviding {
      */
     func startCamera(
         _ type: AVCaptureDevice.DeviceType,
+        fps: CameraFPS,
         cameraPosition: CameraPosition
     ) async throws
 
