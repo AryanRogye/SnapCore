@@ -13,12 +13,24 @@ private struct IlluminanceDetectionUniforms: MetalUniform {
     var contrastControl: Float
 }
 
+private struct IlluminanceDetectionAlternameUniforms: MetalUniform {
+    var brightnessThreshold: Float
+    var radius: Int32
+}
+
+private struct IlluminanceRecoveryUniforms: MetalUniform {
+    var brightnessThreshold : Float
+    var recovery: Float
+    var showDebug: UInt32
+}
 
 public final class IlluminanceDetection: MetalFilter {
     
     let ctx : MetalContext = .shared
     
     private var psoIlluminanceDetection: MTLComputePipelineState!
+    private var psoIlluminanceDetectionAlternate: MTLComputePipelineState!
+    private var psoRecovery: MTLComputePipelineState!
     internal var queue: MTLCommandQueue!
     private var uniformBuf: MTLBuffer!
     
@@ -27,14 +39,74 @@ public final class IlluminanceDetection: MetalFilter {
         
         // Load the shader function
         let function = ctx.library.makeFunction(name: "detect_illuminance")
+        let function2 = ctx.library.makeFunction(name: "detect_illuminance_alternate")
+        let function3 = ctx.library.makeFunction(name: "illuminance_recovery")
         
         do {
             psoIlluminanceDetection = try ctx.device.makeComputePipelineState(function: function!)
+            psoIlluminanceDetectionAlternate = try ctx.device.makeComputePipelineState(function: function2!)
+            psoRecovery = try ctx.device.makeComputePipelineState(function: function3!)
         } catch {
-            print("Failed to create sharpening pipeline state: \(error)")
+            print("Failed to create illuminance pipeline state: \(error)")
         }
     }
-    
+}
+
+extension IlluminanceDetection {
+    public func illuminance_recovery(
+        in image: MTLTexture,
+        threshold: Float,
+        recovery: Float,
+        showDebug: Bool,
+    ) -> MTLTexture? {
+        guard let pso = psoRecovery,
+              let out = makeOutputTexture(matching: image) else { return nil }
+        
+        var uniforms = IlluminanceRecoveryUniforms(
+            brightnessThreshold: threshold,
+            recovery: recovery,
+            showDebug: showDebug ? 1 : 0
+        )
+        
+        return dispatch(
+            pso: pso,
+            input: image,
+            output: out,
+            uniforms: &uniforms
+        ) { enc in
+            enc.setTexture(image, index: 0)
+            enc.setTexture(out, index: 1)
+        }
+    }
+}
+
+extension IlluminanceDetection {
+    public func detect_illuminance_alternate(
+        in image: MTLTexture,
+        threshold: Float,
+        radius: Int,
+    ) -> MTLTexture? {
+        guard let pso = psoIlluminanceDetectionAlternate,
+              let out = makeOutputTexture(matching: image) else { return nil }
+        
+        var uniforms = IlluminanceDetectionAlternameUniforms(
+            brightnessThreshold: threshold,
+            radius: Int32(radius)
+        )
+        
+        return dispatch(
+            pso: pso,
+            input: image,
+            output: out,
+            uniforms: &uniforms
+        ) { enc in
+            enc.setTexture(image, index: 0)
+            enc.setTexture(out, index: 1)
+        }
+    }
+}
+
+extension IlluminanceDetection {
     public func detect_illuminance(
         in image: MTLTexture,
         threshold: Float
@@ -59,6 +131,8 @@ public final class IlluminanceDetection: MetalFilter {
     }
     
     /**
+     * Implementing Dynamic Range Reduction inspired by Photoreceptor Physiology
+     * by Erik Reinhard, Member, IEEE, and Kate Devlin
      * https://pages.cs.wisc.edu/~lizhang/courses/cs766-2012f/projects/hdr/Reinhard2005DRR.pdf
      * Function Retreives a Lmax Lav, and Lmin given by:
      * k = (Lmax − Lav)/(Lmax − Lmin)
