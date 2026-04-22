@@ -8,11 +8,14 @@
 import AVFoundation
 
 public actor CameraCaptureService: CameraCaptureProviding {
-    
+
     internal var session: AVCaptureSession?
     internal let movieOutput = AVCaptureMovieFileOutput()
     internal let videoOutput = AVCaptureVideoDataOutput()
     internal let frameHandler = PixelBufferFrameHandler()
+    internal var onFaceBoxes: (([CGRect], CVPixelBuffer, CFAbsoluteTime) -> Void)?
+
+    internal var multiFaceRecognitionHandler: MultiFaceRecognitionHandler?
     
     @MainActor
     private let recordingDelegate = RecordingDelegate()

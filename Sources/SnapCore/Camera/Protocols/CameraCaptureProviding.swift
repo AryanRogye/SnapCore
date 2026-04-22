@@ -17,6 +17,13 @@ public protocol CameraCaptureProviding {
     ) async
     
     /**
+     * Function sets what happens when capture starts with face tracking
+     */
+    func setOnFaceBoxes(
+        _ handler: @escaping ([CGRect], CVPixelBuffer, CFAbsoluteTime) -> Void
+    ) async
+    
+    /**
      * Function To Know if Camera was Authorized Or Not
      */
     func isAuthorized() async -> Bool
@@ -27,12 +34,27 @@ public protocol CameraCaptureProviding {
     func getSession() async -> AVCaptureSession?
     
     /**
+     * Function starts the camera with
+     * face tracking on, this means if anyone
+     * sets the handlers then they can get the faces
+     * routed through there
+     */
+    func startCameraWithFaceTracking(
+        with device: AVCaptureDevice,
+        fps: CameraFPS,
+        cameraPosition: CameraPosition,
+        colorSpace: CameraColorSpace,
+        optimize: Bool,
+    ) async throws
+    
+    /**
      * Function starts the camera
      */
     func startCamera(
-        _ type: AVCaptureDevice.DeviceType,
+        with device: AVCaptureDevice,
         fps: CameraFPS,
-        cameraPosition: CameraPosition
+        cameraPosition: CameraPosition,
+        colorSpace: CameraColorSpace
     ) async throws
 
     /**
@@ -47,4 +69,24 @@ public protocol CameraCaptureProviding {
         at point: CGPoint,
         in viewSize: CGSize
     ) async
+    
+    /**
+     * Sets the zoom factor for the camera
+     */
+    func setZoomFactor(
+        _ factor: CGFloat,
+        rate: Float
+    ) async
+    
+    /**
+     * Function sets the zoom with no animation
+     */
+    func setZoomFactorInstant(
+        _ factor: CGFloat
+    ) async
+    
+    /**
+     * Function returns the devices available with the session
+     */
+    func searchSessions() async -> [AVCaptureDevice]
 }

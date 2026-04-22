@@ -1,0 +1,22 @@
+//
+//  CameraColorSpace.swift
+//  SnapCore
+//
+//  Created by Aryan Rogye on 4/21/26.
+//
+
+import AVFoundation
+
+public enum CameraColorSpace: String, CaseIterable {
+    case sRGB = "sRGB"
+    case p3   = "P3"
+    case hlg  = "HDR" // HDR
+    
+    public var avColorSpace: AVCaptureColorSpace {
+        switch self {
+        case .sRGB: return .sRGB
+        case .p3:   return .P3_D65
+        case .hlg:  return .HLG_BT2020
+        }
+    }
+}
