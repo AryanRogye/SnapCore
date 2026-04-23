@@ -39,6 +39,7 @@ public final class MetalContext {
             subdirectory: "Processing"
         )
 
+        /// (metal filename) (metal extension) (path to folder)
         let shaderPaths = [
             ("Contrast", "metal", "Processing/Contrast"),
             ("Sharpen", "metal", "Processing/Sharpen"),
@@ -46,7 +47,9 @@ public final class MetalContext {
             ("Lanczos", "metal", "Processing/Lanczos"),
             ("Exposure", "metal", "Processing/Exposure"),
             ("Blur", "metal", "Processing/Blur"),
-            ("Illuminance", "metal", "Processing/Illumination")
+            ("Saturation", "metal", "Processing/Saturation"),
+            ("Illuminance", "metal", "Processing/Illumination"),
+            ("Blending", "metal", "Processing/Blending")
         ]
         
         let source = (

@@ -48,6 +48,41 @@ float3 hsv2rgb(float3 c) {
     return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
 }
 
+kernel void illuminance_sections(
+                                 texture2d<float, access::read>  inTexture  [[texture(0)]],
+                                 texture2d<float, access::write> outTexture [[texture(1)]],
+                                 constant IlluminanceRecoveryUniforms& uniforms [[buffer(0)]],
+                                 uint2 gid [[thread_position_in_grid]]
+                                 ) {
+    /// Determine width and height of texture to make sure its valid
+    uint width  = inTexture.get_width();
+    uint height = inTexture.get_height();
+
+    if (gid.x >= width || gid.y >= height) return;
+
+    float3 rgbColor = inTexture.read(gid).rgb;
+    float L_in = rgb2luminance(rgbColor);
+
+    float threshold = uniforms.brightnessThreshold;
+
+    float isBrightValue = step(threshold, L_in);
+    bool isBright = isBrightValue > 0.0;
+
+    if (isBright) {
+        bool showDebug = uniforms.showDebug;
+        /// write original
+        if (showDebug) {
+          outTexture.write(float4(0.0, 1.0, 0.0, 1.0), gid);
+        } else {
+            outTexture.write(float4(rgbColor, 1.0), gid);
+        }
+    } else {
+        /// Write Transparent
+        outTexture.write(float4(0.0, 0.0, 0.0, 0.0), gid);
+    }
+}
+
+
 kernel void illuminance_recovery(
                                 texture2d<float, access::read>  inTexture  [[texture(0)]],
                                 texture2d<float, access::write> outTexture [[texture(1)]],
@@ -57,17 +92,17 @@ kernel void illuminance_recovery(
     /// Determine width and height of texture to make sure its valid
     uint width  = inTexture.get_width();
     uint height = inTexture.get_height();
-    
+
     if (gid.x >= width || gid.y >= height) return;
-    
+
     float3 rgbColor = inTexture.read(gid).rgb;
     float L_in = rgb2luminance(rgbColor);
-    
+
     float threshold = uniforms.brightnessThreshold;
-    
+
     float isBrightValue = step(threshold, L_in);
     bool isBright = isBrightValue > 0.0;
-    
+
     if (isBright) {
         bool showDebug = uniforms.showDebug;
         if (showDebug) {
@@ -75,13 +110,13 @@ kernel void illuminance_recovery(
         } else {
             float excess = smoothstep(threshold, 1.0, L_in);
             float pullback = excess * uniforms.recovery; // recovery 0–1
-            
+
             float3 hsv = rgb2hsv(rgbColor);
-            
+
             // pull value down, slight desaturation (highlights are often oversaturated)
             hsv.z = mix(hsv.z, threshold, pullback);
             hsv.y = mix(hsv.y, hsv.y * 0.75, pullback); // soften saturation a bit
-            
+
             float3 finalColor = hsv2rgb(hsv);
             outTexture.write(float4(finalColor, 1.0), gid);
         }
@@ -103,20 +138,20 @@ kernel void detect_illuminance_alternate(
                                constant IlluminanceDetectionAlternameUniforms& uniforms [[buffer(0)]],
                                uint2 gid [[thread_position_in_grid]]
                                          ) {
-    
+
     /// Determine width and height of texture to make sure its valid
     uint width  = inTexture.get_width();
     uint height = inTexture.get_height();
-    
+
     if (gid.x >= width || gid.y >= height) return;
-    
+
     /// 0.0 Everything Passes 1.0 Almost Nothing Passes only extreme highlights
     float threshold = uniforms.brightnessThreshold;
     int radius = uniforms.radius;
     int diameter = (radius * 2) + 1;
-    
+
     float contrastControl;
-    
+
     if (diameter == 3) {
         KernelNxN<3> k;
         k.load(inTexture, gid, width, height);
@@ -165,13 +200,13 @@ kernel void detect_illuminance_alternate(
 
     float3 rgbColor = inTexture.read(gid).rgb;
     float L_in = rgb2luminance(rgbColor);
-    
+
     /// Reinhard with m as the exponent
     float L_out = pow(L_in, contrastControl) / (1.0 + pow(L_in, contrastControl));
-    
+
     float isBrightValue = step(threshold, L_out);
     bool isBright = isBrightValue > 0.0;
-    
+
     if (isBright) {
         /// write green for debugging
         outTexture.write(float4(0.0, 1.0, 0.0, 1.0), gid);

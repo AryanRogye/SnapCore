@@ -115,3 +115,39 @@ kernel void apply_blur(
     
     outTexture.write(blur, gid);
 }
+
+kernel void bloom_blur(
+                       texture2d<float, access::read>  inTexture  [[texture(0)]],
+                       texture2d<float, access::write> outTexture [[texture(1)]],
+                       constant BlurUniforms& uniforms [[buffer(0)]],
+                       uint2 gid [[thread_position_in_grid]]
+                       ) {
+    uint width  = inTexture.get_width();
+    uint height = inTexture.get_height();
+    
+    if (gid.x >= width || gid.y >= height) return;
+    
+    int radius = min(max(uniforms.radius, 1), 32);
+    float sigma = max(uniforms.detail, 0.0001);
+    float totalWeight = 0.0;
+    float alphaWeight = 0.0;
+    float3 premultipliedRGB = float3(0.0);
+    
+    for (int y = -radius; y <= radius; y++) {
+        for (int x = -radius; x <= radius; x++) {
+            int sampleX = clamp(int(gid.x) + x, 0, int(width) - 1);
+            int sampleY = clamp(int(gid.y) + y, 0, int(height) - 1);
+            float weight = exp(-float(x * x + y * y) / (2.0 * sigma * sigma));
+            float4 sample = inTexture.read(uint2(sampleX, sampleY));
+            
+            premultipliedRGB += sample.rgb * sample.a * weight;
+            alphaWeight += sample.a * weight;
+            totalWeight += weight;
+        }
+    }
+    
+    float outAlpha = alphaWeight / max(totalWeight, 0.0001);
+    float3 outRGB = premultipliedRGB / max(alphaWeight, 0.0001);
+    
+    outTexture.write(float4(clamp(outRGB, 0.0, 1.0), clamp(outAlpha, 0.0, 1.0)), gid);
+}

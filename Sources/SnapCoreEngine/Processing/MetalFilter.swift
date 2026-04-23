@@ -45,7 +45,8 @@ extension MetalFilter {
         
         enc.setComputePipelineState(pso)
         withUnsafeBytes(of: &uniforms) { bytes in
-            enc.setBytes(bytes.baseAddress!, length: bytes.count, index: 0)
+            guard bytes.count > 0, let baseAddress = bytes.baseAddress else { return }
+            enc.setBytes(baseAddress, length: bytes.count, index: 0)
         }
         setup(enc)
         

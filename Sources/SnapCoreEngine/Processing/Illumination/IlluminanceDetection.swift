@@ -31,6 +31,7 @@ public final class IlluminanceDetection: MetalFilter {
     private var psoIlluminanceDetection: MTLComputePipelineState!
     private var psoIlluminanceDetectionAlternate: MTLComputePipelineState!
     private var psoRecovery: MTLComputePipelineState!
+    private var psoIlluminanceSections: MTLComputePipelineState!
     internal var queue: MTLCommandQueue!
     private var uniformBuf: MTLBuffer!
     
@@ -41,11 +42,13 @@ public final class IlluminanceDetection: MetalFilter {
         let function = ctx.library.makeFunction(name: "detect_illuminance")
         let function2 = ctx.library.makeFunction(name: "detect_illuminance_alternate")
         let function3 = ctx.library.makeFunction(name: "illuminance_recovery")
+        let function4 = ctx.library.makeFunction(name: "illuminance_sections")
         
         do {
             psoIlluminanceDetection = try ctx.device.makeComputePipelineState(function: function!)
             psoIlluminanceDetectionAlternate = try ctx.device.makeComputePipelineState(function: function2!)
             psoRecovery = try ctx.device.makeComputePipelineState(function: function3!)
+            psoIlluminanceSections = try ctx.device.makeComputePipelineState(function: function4!)
         } catch {
             print("Failed to create illuminance pipeline state: \(error)")
         }
@@ -53,6 +56,32 @@ public final class IlluminanceDetection: MetalFilter {
 }
 
 extension IlluminanceDetection {
+    public func illuminance_sections(
+        in image: MTLTexture,
+        threshold: Float,
+        recovery: Float,
+        showDebug: Bool,
+    ) -> MTLTexture? {
+        guard let pso = psoIlluminanceSections,
+              let out = makeOutputTexture(matching: image) else { return nil }
+        
+        var uniforms = IlluminanceRecoveryUniforms(
+            brightnessThreshold: threshold,
+            recovery: recovery,
+            showDebug: showDebug ? 1 : 0
+        )
+        
+        return dispatch(
+            pso: pso,
+            input: image,
+            output: out,
+            uniforms: &uniforms
+        ) { enc in
+            enc.setTexture(image, index: 0)
+            enc.setTexture(out, index: 1)
+        }
+    }
+    
     public func illuminance_recovery(
         in image: MTLTexture,
         threshold: Float,
