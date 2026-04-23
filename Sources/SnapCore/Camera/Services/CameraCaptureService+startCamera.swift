@@ -14,9 +14,6 @@ extension CameraCaptureService {
         colorSpace: CameraColorSpace = .sRGB,
         optimize: Bool,
     ) async throws {
-        guard let onFaceBoxes else {
-            fatalError("Started Camera With Facetracking But onFaceBoxes Callback Not Set")
-        }
         await stopCamera()
         
         let session = AVCaptureSession()
@@ -35,7 +32,6 @@ extension CameraCaptureService {
             for: cameraPosition,
             in: session,
             optimize: optimize,
-            onFaceBoxes: onFaceBoxes
         )
         
         session.commitConfiguration()
@@ -187,13 +183,11 @@ extension CameraCaptureService {
         for position: CameraPosition,
         in session: AVCaptureSession,
         optimize: Bool,
-        onFaceBoxes: @escaping ([CGRect], CVPixelBuffer, CFAbsoluteTime) -> Void
     ) async throws {
         try await attachFaceTrackingOutput(
             in: session,
             optimize: optimize,
             position: position,
-            onFaceBoxes: onFaceBoxes
         )
         configureVideoConnection(for: position)
     }
@@ -220,14 +214,20 @@ extension CameraCaptureService {
         in session: AVCaptureSession,
         optimize: Bool,
         position: CameraPosition,
-        onFaceBoxes: @escaping ([CGRect], CVPixelBuffer, CFAbsoluteTime) -> Void
     ) async throws {
+        
         let handler = await MultiFaceRecognitionHandler(
             optimize,
             orientation: position == .front ? .upMirrored : .right
         )
+        if let onPersonMask {
+            handler.setOnPersonMask(onPersonMask)
+        }
+        if let onFaceBoxes {
+            handler.setOnFaceBoxes(onFaceBoxes)
+        }
+        
         self.multiFaceRecognitionHandler = handler
-        await self.multiFaceRecognitionHandler?.setOnFaceBoxes(onFaceBoxes)
 
         try addVideoOutput(
             in: session,

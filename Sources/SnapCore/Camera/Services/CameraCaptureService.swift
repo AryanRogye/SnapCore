@@ -14,6 +14,7 @@ public actor CameraCaptureService: CameraCaptureProviding {
     internal let videoOutput = AVCaptureVideoDataOutput()
     internal let frameHandler = PixelBufferFrameHandler()
     internal var onFaceBoxes: (([CGRect], CVPixelBuffer, CFAbsoluteTime) -> Void)?
+    internal var onPersonMask: ((CVPixelBuffer) -> Void)?
 
     internal var multiFaceRecognitionHandler: MultiFaceRecognitionHandler?
     

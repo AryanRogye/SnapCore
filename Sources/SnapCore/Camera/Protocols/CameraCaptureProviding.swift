@@ -19,6 +19,13 @@ public protocol CameraCaptureProviding {
     /**
      * Function sets what happens when capture starts with face tracking
      */
+    func setOnPersonMask(
+        _ handler: @escaping ((CVPixelBuffer) -> Void)
+    ) async
+    
+    /**
+     * Function sets what happens when capture starts with face tracking
+     */
     func setOnFaceBoxes(
         _ handler: @escaping ([CGRect], CVPixelBuffer, CFAbsoluteTime) -> Void
     ) async

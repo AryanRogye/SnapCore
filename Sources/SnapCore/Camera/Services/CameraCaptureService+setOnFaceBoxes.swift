@@ -13,4 +13,10 @@ extension CameraCaptureService {
     ) {
         self.onFaceBoxes = handler
     }
+    
+    public func setOnPersonMask(
+        _ handler: @escaping ((CVPixelBuffer) -> Void)
+    ) {
+        self.onPersonMask = handler
+    }
 }

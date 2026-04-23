@@ -21,6 +21,11 @@ final class MultiFaceRecognitionHandler: NSObject, AVCaptureVideoDataOutputSampl
     
     var lastFaces: [CGRect] = []
     var onFaceBoxes: (([CGRect], CVPixelBuffer, CFAbsoluteTime) -> Void)?
+    var onPersonMask: ((CVPixelBuffer) -> Void)?
+    
+    public func setOnPersonMask(_ handler: @escaping ((CVPixelBuffer) -> Void)) {
+        self.onPersonMask = handler
+    }
     
     public func setOnFaceBoxes(_ handler: @escaping ([CGRect], CVPixelBuffer, CFAbsoluteTime) -> Void) {
         self.onFaceBoxes = handler
@@ -40,42 +45,64 @@ final class MultiFaceRecognitionHandler: NSObject, AVCaptureVideoDataOutputSampl
                 guard throttle.shouldProcessNow() else { return }
             }
             
-            guard let buffer = CMSampleBufferGetImageBuffer(sampleBuffer),
-                  let onFaceBoxes else { return }
+            guard let buffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
             
-            let detectFaces = VNDetectFaceRectanglesRequest { req, err in
-                guard let results = req.results as? [VNFaceObservation]
-                else { return }
-                
-                let faces = results
-                var boxes: [CGRect] = []
-                for face in faces {
-                    boxes.append(face.boundingBox)
-                }
-                
-                /// Calc if is close by using old + new
-                let isCloseBy = self.isCloseBy(old: self.lastFaces, new: boxes)
-                
-                /// Set the new stable throttle
-                self.throttle.setStable(isCloseBy)
-                let currentInterval = self.throttle.currentInterval
-                
-                /// Pass it back to the view
-                onFaceBoxes(boxes, buffer, currentInterval)
-                
-                /// Set new boxes
-                self.lastFaces = boxes
+            detectFaceBoxes(image: buffer)
+        }
+    }
+    
+    private func detectFaceBoxes(image: CVPixelBuffer) {
+        guard let onFaceBoxes else { return }
+        let detectFaces = VNDetectFaceRectanglesRequest { req, err in
+            guard let results = req.results as? [VNFaceObservation]
+            else { return }
+            
+            let faces = results
+            var boxes: [CGRect] = []
+            for face in faces {
+                boxes.append(face.boundingBox)
             }
             
-            do {
-                try requestHandler.perform(
-                    [detectFaces],
-                    on: buffer,
-                    orientation: orientation
-                )
-            } catch {
-                print("Vision error:", error)
-            }
+            /// Calc if is close by using old + new
+            let isCloseBy = self.isCloseBy(old: self.lastFaces, new: boxes)
+            
+            /// Set the new stable throttle
+            self.throttle.setStable(isCloseBy)
+            let currentInterval = self.throttle.currentInterval
+            
+            /// Pass it back to the view
+            onFaceBoxes(boxes, image, currentInterval)
+            
+            /// Set new boxes
+            self.lastFaces = boxes
+        }
+        do {
+            try requestHandler.perform(
+                [detectFaces],
+                on: image,
+                orientation: orientation
+            )
+        } catch {
+            print("Vision error:", error)
+        }
+    }
+    
+    private func detectPersonMask(image: CVPixelBuffer) {
+        guard let onPersonMask else { return }
+        let detectPerson = VNGeneratePersonSegmentationRequest { req, err in
+            guard let results = req.results as? [VNPixelBufferObservation] else { return }
+            
+            guard let buffer : CVPixelBuffer = results.first?.pixelBuffer else { return }
+            onPersonMask(buffer)
+        }
+        do {
+            try requestHandler.perform(
+                [detectPerson],
+                on: image,
+                orientation: orientation
+            )
+        } catch {
+            print("Vision error:", error)
         }
     }
 }

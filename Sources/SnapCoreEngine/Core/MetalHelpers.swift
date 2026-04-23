@@ -26,6 +26,56 @@ public struct MetalHelpers {
 
     private static let supportedPixelBufferFormat: OSType = kCVPixelFormatType_32BGRA
     
+    public static func makeTexture(from pixelBuffer: CVPixelBuffer) throws -> MTLTexture? {
+        guard let cache = textureCache else {
+            throw MetalHelperError.invalidTextureCache
+        }
+        
+        let cvPixelFormat = CVPixelBufferGetPixelFormatType(pixelBuffer)
+        let width = CVPixelBufferGetWidth(pixelBuffer)
+        let height = CVPixelBufferGetHeight(pixelBuffer)
+        
+        guard width > 0, height > 0 else {
+            throw MetalHelperError.invalidDimensions(
+                "Invalid Width or Height (Width: \(width), Height: \(height))"
+            )
+        }
+        
+        let metalPixelFormat: MTLPixelFormat
+        
+        switch cvPixelFormat {
+        case kCVPixelFormatType_32BGRA:
+            metalPixelFormat = .bgra8Unorm
+            
+        case kCVPixelFormatType_OneComponent8:
+            metalPixelFormat = .r8Unorm
+            
+        default:
+            throw MetalHelperError.unsupportedPixelBufferFormat(
+                "Unsupported CVPixelBuffer format: \(cvPixelFormat)"
+            )
+        }
+        
+        var cvTexture: CVMetalTexture?
+        let status = CVMetalTextureCacheCreateTextureFromImage(
+            kCFAllocatorDefault,
+            cache,
+            pixelBuffer,
+            nil,
+            metalPixelFormat,
+            width,
+            height,
+            0,
+            &cvTexture
+        )
+        
+        guard status == kCVReturnSuccess, let cvTexture else {
+            return nil
+        }
+        
+        return CVMetalTextureGetTexture(cvTexture)
+    }
+    
     public static func getImageTexture(from pixelBuffer: CVPixelBuffer) throws -> MTLTexture? {
         guard let cache = textureCache else {
             throw MetalHelperError.invalidTextureCache
