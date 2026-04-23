@@ -10,11 +10,11 @@ import MetalKit
 import Foundation
 import CoreImage
 
-struct ExposureUniforms: MetalUniform {
+private struct ExposureUniforms: MetalUniform {
     var factor: Float
 }
 
-class ImageExposureAdjuster: MetalFilter {
+public class ImageExposureAdjuster: MetalFilter {
     
     let ctx : MetalContext = .shared
     
@@ -22,7 +22,7 @@ class ImageExposureAdjuster: MetalFilter {
     internal var queue: MTLCommandQueue!
     private var uniformBuf: MTLBuffer!
     
-    init() {
+    public init() {
         self.queue = ctx.device.makeCommandQueue()
         
         // Load the shader function
