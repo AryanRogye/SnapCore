@@ -11,6 +11,7 @@ extension CameraCaptureService {
     public func setZoomFactor(_ factor: CGFloat, rate: Float = 4.0) async {
         guard let device = (session?.inputs.first as? AVCaptureDeviceInput)?.device else { return }
         
+#if os(iOS)
         do {
             try device.lockForConfiguration()
             let clamped = max(device.minAvailableVideoZoomFactor,
@@ -20,10 +21,12 @@ extension CameraCaptureService {
         } catch {
             return
         }
+#endif
     }
     public func setZoomFactorInstant(_ factor: CGFloat) async {
         guard let device = (session?.inputs.first as? AVCaptureDeviceInput)?.device else { return }
         
+#if os(iOS)
         do {
             try device.lockForConfiguration()
             let clamped = max(device.minAvailableVideoZoomFactor,
@@ -34,5 +37,6 @@ extension CameraCaptureService {
         } catch {
             return
         }
+#endif
     }
 }

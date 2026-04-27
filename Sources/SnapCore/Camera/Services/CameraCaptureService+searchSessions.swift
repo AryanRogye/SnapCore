@@ -10,6 +10,15 @@ import AVFoundation
 extension CameraCaptureService {
     
     public func searchSessions() async -> [AVCaptureDevice] {
+        #if os(macOS)
+        let discoverySession = AVCaptureDevice.DiscoverySession(
+            deviceTypes: [
+                .builtInWideAngleCamera,
+            ],
+            mediaType: .video,
+            position: .unspecified
+        )
+        #else
         let discoverySession = AVCaptureDevice.DiscoverySession(
             deviceTypes: [
                 .builtInWideAngleCamera,
@@ -21,6 +30,7 @@ extension CameraCaptureService {
             mediaType: .video,
             position: .unspecified
         )
+        #endif
         
         return discoverySession.devices
     }
