@@ -16,7 +16,7 @@ private struct SharpenUniforms: MetalUniform {
     var detail: Float
 }
 
-final class ImageSharpener: MetalFilter {
+public final class ImageSharpener: MetalFilter {
     
     let ctx : MetalContext = .shared
     
@@ -24,7 +24,7 @@ final class ImageSharpener: MetalFilter {
     internal var queue: MTLCommandQueue!
     private var uniformBuf: MTLBuffer!
     
-    init() {
+    public init() {
         self.queue = ctx.device.makeCommandQueue()
         
         // Load the shader function

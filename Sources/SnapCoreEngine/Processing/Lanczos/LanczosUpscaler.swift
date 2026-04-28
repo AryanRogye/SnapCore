@@ -12,14 +12,14 @@ private struct LanczosUniforms: MetalUniform {
     var kernelSize: Int32
 }
 
-final class LanczosUpscaler: MetalFilter {
+public final class LanczosUpscaler: MetalFilter {
     let ctx : MetalContext = .shared
     
     private var psolanczos: MTLComputePipelineState!
     internal var queue: MTLCommandQueue!
     private var uniformBuf: MTLBuffer!
     
-    init() {
+    public init() {
         self.queue = ctx.device.makeCommandQueue()
         
         // Load the shader function

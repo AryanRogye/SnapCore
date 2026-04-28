@@ -1,5 +1,32 @@
 # SnapCore
 
+A high-performance engine for building professional screen tools on Apple platforms. Powered by Metal and ScreenCaptureKit.
+
+| 120 FPS | Metal GPU Pipeline | 8K Ready | Pro Cursor |
+| :--- | :--- | :--- | :--- |
+
+## Features
+
+### Metal-Accelerated Processing
+- **Lanczos Upscaling**: High-performance scaling for 4K and 8K outputs.
+- **Real-time Filters**: GPU-accelerated Exposure, Contrast, Saturation, Blur, and Sharpening.
+- **Illumination Detection**: Smart detection of frame brightness.
+
+### Cursor Compositing
+- **Custom Cursor Shapes**: Control scale, roundness, and wing distance.
+- **Dynamic Shadows**: Pro-grade cursor shadows for video production.
+- **Motion Tracking**: Capture cursor deltas and angles for advanced effects.
+
+### Modular Power
+Don't need the full recording pipeline? Every component is designed to be modular. You can drop our Metal filters or Lanczos upscaler directly into your own custom `SCStream` or `AVFoundation` pipeline.
+
+### Recording & Playback
+- **120 FPS Capture**: Ultra-smooth recording via ScreenCaptureKit.
+- **Livestreaming**: Native support for encoded video streams (OutputStream/InputStream).
+- **Cross-Platform Playback**: Unified engine for macOS and iOS.
+
+---
+
 SnapCore is a Swift package for Apple platforms with two library products:
 
 - `SnapCore`: screenshot capture and screen-recording primitives for macOS.
@@ -648,3 +675,54 @@ The stream transport layer is app-owned. [PHMirror](https://github.com/AryanRogy
 - Cursor shadows: `PlaybackImageCoordinator.cursorShadowConfig` controls the rendered cursor shadow offsets and opacities used during playback/export compositing.
 - Cursor motion: `PlaybackEngine.currentCursorMotionState` exposes cursor movement deltas for editor UI or future motion-driven cursor effects.
 - Cleanup: Always call `stopRecording()` when done to stop the stream, clear any pending recording output URL, and deactivate the picker.
+
+## Standalone Usage
+
+SnapCore is built to be modular. You can use the Metal-accelerated processing tools individually without adopting the full recording pipeline.
+
+### Real-time Metal Filters
+
+Apply professional effects to any `MTLTexture`:
+
+```swift
+import SnapCoreEngine
+
+let sharpener = ImageSharpener()
+let upscaler = LanczosUpscaler()
+
+// Apply 1.5x sharpening
+if let sharpened = try? sharpener.sharpen(myTexture, sharpness: 1.5) {
+    // Use sharpened texture
+}
+
+// Pro-grade 2x upscaling
+if let upscaled = upscaler.upscale(myTexture, lanczosScale: 2.0, kernelSize: 3) {
+    // Use 4K/8K upscaled texture
+}
+```
+
+### Manual Cursor Compositing
+
+If you have your own capture loop but want pro cursor rendering:
+
+```swift
+import SnapCoreEngine
+
+let sticher = CursorSticher()
+let shadowConfig = CursorShadowConfig()
+
+// Composite a custom cursor onto a base frame
+if let framed = try? sticher.apply(
+    cursorTexture,
+    onto: baseFrameTexture,
+    at: mousePoint,
+    screen: displayRect,
+    shadowConfig: shadowConfig,
+    cursorMotionState: CursorMotionState()
+) {
+    // framed now contains the base frame with a styled cursor + shadow
+}
+```
+
+> [!TIP]
+> **Performance Tip**: For maximum efficiency, avoid converting `MTLTexture` back to `CGImage` or `NSImage` for previews. Display the `MTLTexture` directly using `MTKView` or a SwiftUI `Canvas` with Metal support to keep the entire pipeline on the GPU.

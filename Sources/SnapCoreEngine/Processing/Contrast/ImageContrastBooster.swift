@@ -14,7 +14,7 @@ struct ContrastUniforms: MetalUniform {
     var factor: Float
 }
 
-class ImageContrastBooster: MetalFilter {
+public class ImageContrastBooster: MetalFilter {
     
     let ctx : MetalContext = .shared
     
@@ -22,7 +22,7 @@ class ImageContrastBooster: MetalFilter {
     internal var queue: MTLCommandQueue!
     private var uniformBuf: MTLBuffer!
     
-    init() {
+    public init() {
         self.queue = ctx.device.makeCommandQueue()
         
         // Load the shader function
