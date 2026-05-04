@@ -103,10 +103,12 @@ public final class CursorSticher: MetalFilter {
             dy: Float(cursorMotionState.dy)
         )
         
-        return dispatch(pso: pso, input: image, output: out, uniforms: &uniforms) { enc in
+        let info = dispatch(pso: pso, input: image, output: out, uniforms: &uniforms) { enc in
             enc.setTexture(image, index: 0)
             enc.setTexture(cursor, index: 1)
             enc.setTexture(out, index: 2)
         }
+        
+        return info?.texture
     }
 }

@@ -44,9 +44,11 @@ public class ImageExposureAdjuster: MetalFilter {
         
         var uniforms = ExposureUniforms(factor: factor)
         
-        return dispatch(pso: pso, input: image, output: out, uniforms: &uniforms) { enc in
+        let info = dispatch(pso: pso, input: image, output: out, uniforms: &uniforms) { enc in
             enc.setTexture(image, index: 0)
             enc.setTexture(out, index: 1)
         }
+        
+        return info?.texture
     }
 }

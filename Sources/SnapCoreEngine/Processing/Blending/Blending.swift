@@ -41,7 +41,7 @@ public final class Blending: MetalFilter {
         
         
         var uniforms = BlendingUniform()
-        return dispatch(
+        let info = dispatch(
             pso: pso,
             input: base,
             output: out,
@@ -51,5 +51,7 @@ public final class Blending: MetalFilter {
             enc.setTexture(image, index: 1)
             enc.setTexture(out, index: 2)
         }
+        
+        return info?.texture
     }
 }

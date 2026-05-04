@@ -7,6 +7,11 @@
 
 import MetalKit
 
+struct ProcessingInformation {
+    let texture: MTLTexture?
+    let gpuTime: CFTimeInterval
+}
+
 protocol MetalFilter: AnyObject {
     var ctx: MetalContext { get }
     var queue: MTLCommandQueue! { get }
@@ -39,7 +44,7 @@ extension MetalFilter {
         output: MTLTexture,
         uniforms: inout U,
         setup: (MTLComputeCommandEncoder) -> Void
-    ) -> MTLTexture? {
+    ) -> ProcessingInformation? {
         guard let cmd = queue.makeCommandBuffer(),
               let enc = cmd.makeComputeCommandEncoder() else { return nil }
         
@@ -60,6 +65,13 @@ extension MetalFilter {
         cmd.commit()
         cmd.waitUntilCompleted()
         
-        return output
+        let gpuTime = cmd.gpuEndTime - cmd.gpuStartTime
+        
+        let info = ProcessingInformation(
+            texture: output,
+            gpuTime: gpuTime
+        )
+        
+        return info
     }
 }

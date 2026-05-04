@@ -71,7 +71,7 @@ extension IlluminanceDetection {
             showDebug: showDebug ? 1 : 0
         )
         
-        return dispatch(
+        let info = dispatch(
             pso: pso,
             input: image,
             output: out,
@@ -80,6 +80,8 @@ extension IlluminanceDetection {
             enc.setTexture(image, index: 0)
             enc.setTexture(out, index: 1)
         }
+        
+        return info?.texture
     }
     
     public func illuminance_recovery(
@@ -97,7 +99,7 @@ extension IlluminanceDetection {
             showDebug: showDebug ? 1 : 0
         )
         
-        return dispatch(
+        let info = dispatch(
             pso: pso,
             input: image,
             output: out,
@@ -106,6 +108,8 @@ extension IlluminanceDetection {
             enc.setTexture(image, index: 0)
             enc.setTexture(out, index: 1)
         }
+        
+        return info?.texture
     }
 }
 
@@ -123,7 +127,7 @@ extension IlluminanceDetection {
             radius: Int32(radius)
         )
         
-        return dispatch(
+        let info = dispatch(
             pso: pso,
             input: image,
             output: out,
@@ -132,6 +136,8 @@ extension IlluminanceDetection {
             enc.setTexture(image, index: 0)
             enc.setTexture(out, index: 1)
         }
+        
+        return info?.texture
     }
 }
 
@@ -148,7 +154,7 @@ extension IlluminanceDetection {
             contrastControl: preProcess(texture: image)
         )
         
-        return dispatch(
+        let info = dispatch(
             pso: pso,
             input: image,
             output: out,
@@ -157,6 +163,8 @@ extension IlluminanceDetection {
             enc.setTexture(image, index: 0)
             enc.setTexture(out, index: 1)
         }
+        
+        return info?.texture
     }
     
     /**

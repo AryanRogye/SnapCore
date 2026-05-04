@@ -28,7 +28,7 @@ extension CameraCaptureService {
             in: session
         )
         
-        await try setupFaceTrackingOutputs(
+        try await setupFaceTrackingOutputs(
             for: cameraPosition,
             in: session,
             optimize: optimize,

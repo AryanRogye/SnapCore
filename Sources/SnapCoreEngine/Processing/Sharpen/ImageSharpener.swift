@@ -53,7 +53,7 @@ public final class ImageSharpener: MetalFilter {
             detail: detail
         )
         
-        return dispatch(
+        let info = dispatch(
             pso: pso,
             input: image,
             output: out,
@@ -62,5 +62,7 @@ public final class ImageSharpener: MetalFilter {
             enc.setTexture(image, index: 0)
             enc.setTexture(out, index: 1)
         }
+        
+        return info?.texture
     }
 }

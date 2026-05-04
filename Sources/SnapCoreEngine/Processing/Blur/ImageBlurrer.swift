@@ -56,10 +56,12 @@ public final class ImageBlurrer: MetalFilter {
         
         print("Applying Blur: Radius: \(uniforms.radius) Detail: \(uniforms.detail)")
         
-        return dispatch(pso: pso, input: image, output: out, uniforms: &uniforms) { enc in
+        let info = dispatch(pso: pso, input: image, output: out, uniforms: &uniforms) { enc in
             enc.setTexture(image, index: 0)
             enc.setTexture(out, index: 1)
         }
+        
+        return info?.texture
     }
     
     public func bloomBlur(
@@ -78,9 +80,11 @@ public final class ImageBlurrer: MetalFilter {
             detail: sigma
         )
         
-        return dispatch(pso: pso, input: image, output: out, uniforms: &uniforms) { enc in
+        let info = dispatch(pso: pso, input: image, output: out, uniforms: &uniforms) { enc in
             enc.setTexture(image, index: 0)
             enc.setTexture(out, index: 1)
         }
+        
+        return info?.texture
     }
 }

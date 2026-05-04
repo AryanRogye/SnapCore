@@ -1,0 +1,293 @@
+diff --git a/Sources/SnapCore/Camera/Services/CameraCaptureService+startCamera.swift b/Sources/SnapCore/Camera/Services/CameraCaptureService+startCamera.swift
+index f6cef00..815adb6 100644
+--- a/Sources/SnapCore/Camera/Services/CameraCaptureService+startCamera.swift
++++ b/Sources/SnapCore/Camera/Services/CameraCaptureService+startCamera.swift
+@@ -28,7 +28,7 @@ extension CameraCaptureService {
+             in: session
+         )
+         
+-        await try setupFaceTrackingOutputs(
++        try await setupFaceTrackingOutputs(
+             for: cameraPosition,
+             in: session,
+             optimize: optimize,
+diff --git a/Sources/SnapCoreEngine/Processing/Blending/Blending.swift b/Sources/SnapCoreEngine/Processing/Blending/Blending.swift
+index b376884..3c4923c 100644
+--- a/Sources/SnapCoreEngine/Processing/Blending/Blending.swift
++++ b/Sources/SnapCoreEngine/Processing/Blending/Blending.swift
+@@ -41,7 +41,7 @@ public final class Blending: MetalFilter {
+         
+         
+         var uniforms = BlendingUniform()
+-        return dispatch(
++        let info = dispatch(
+             pso: pso,
+             input: base,
+             output: out,
+@@ -51,5 +51,7 @@ public final class Blending: MetalFilter {
+             enc.setTexture(image, index: 1)
+             enc.setTexture(out, index: 2)
+         }
++        
++        return info?.texture
+     }
+ }
+diff --git a/Sources/SnapCoreEngine/Processing/Blur/ImageBlurrer.swift b/Sources/SnapCoreEngine/Processing/Blur/ImageBlurrer.swift
+index 4ae8c65..f6e3732 100644
+--- a/Sources/SnapCoreEngine/Processing/Blur/ImageBlurrer.swift
++++ b/Sources/SnapCoreEngine/Processing/Blur/ImageBlurrer.swift
+@@ -56,10 +56,12 @@ public final class ImageBlurrer: MetalFilter {
+         
+         print("Applying Blur: Radius: \(uniforms.radius) Detail: \(uniforms.detail)")
+         
+-        return dispatch(pso: pso, input: image, output: out, uniforms: &uniforms) { enc in
++        let info = dispatch(pso: pso, input: image, output: out, uniforms: &uniforms) { enc in
+             enc.setTexture(image, index: 0)
+             enc.setTexture(out, index: 1)
+         }
++        
++        return info?.texture
+     }
+     
+     public func bloomBlur(
+@@ -78,9 +80,11 @@ public final class ImageBlurrer: MetalFilter {
+             detail: sigma
+         )
+         
+-        return dispatch(pso: pso, input: image, output: out, uniforms: &uniforms) { enc in
++        let info = dispatch(pso: pso, input: image, output: out, uniforms: &uniforms) { enc in
+             enc.setTexture(image, index: 0)
+             enc.setTexture(out, index: 1)
+         }
++        
++        return info?.texture
+     }
+ }
+diff --git a/Sources/SnapCoreEngine/Processing/Contrast/ImageContrastBooster.swift b/Sources/SnapCoreEngine/Processing/Contrast/ImageContrastBooster.swift
+index 1120c5d..11400ae 100644
+--- a/Sources/SnapCoreEngine/Processing/Contrast/ImageContrastBooster.swift
++++ b/Sources/SnapCoreEngine/Processing/Contrast/ImageContrastBooster.swift
+@@ -44,9 +44,11 @@ public class ImageContrastBooster: MetalFilter {
+         
+         var uniforms = ContrastUniforms(factor: factor)
+         
+-        return dispatch(pso: pso, input: image, output: out, uniforms: &uniforms) { enc in
++        let info = dispatch(pso: pso, input: image, output: out, uniforms: &uniforms) { enc in
+             enc.setTexture(image, index: 0)
+             enc.setTexture(out, index: 1)
+         }
++        
++        return info?.texture
+     }
+ }
+diff --git a/Sources/SnapCoreEngine/Processing/Cursor/CursorSticher.swift b/Sources/SnapCoreEngine/Processing/Cursor/CursorSticher.swift
+index 67d6bf1..878a46a 100644
+--- a/Sources/SnapCoreEngine/Processing/Cursor/CursorSticher.swift
++++ b/Sources/SnapCoreEngine/Processing/Cursor/CursorSticher.swift
+@@ -103,10 +103,12 @@ public final class CursorSticher: MetalFilter {
+             dy: Float(cursorMotionState.dy)
+         )
+         
+-        return dispatch(pso: pso, input: image, output: out, uniforms: &uniforms) { enc in
++        let info = dispatch(pso: pso, input: image, output: out, uniforms: &uniforms) { enc in
+             enc.setTexture(image, index: 0)
+             enc.setTexture(cursor, index: 1)
+             enc.setTexture(out, index: 2)
+         }
++        
++        return info?.texture
+     }
+ }
+diff --git a/Sources/SnapCoreEngine/Processing/Exposure/ImageExposureAdjuster.swift b/Sources/SnapCoreEngine/Processing/Exposure/ImageExposureAdjuster.swift
+index 85d5e23..b43b078 100644
+--- a/Sources/SnapCoreEngine/Processing/Exposure/ImageExposureAdjuster.swift
++++ b/Sources/SnapCoreEngine/Processing/Exposure/ImageExposureAdjuster.swift
+@@ -44,9 +44,11 @@ public class ImageExposureAdjuster: MetalFilter {
+         
+         var uniforms = ExposureUniforms(factor: factor)
+         
+-        return dispatch(pso: pso, input: image, output: out, uniforms: &uniforms) { enc in
++        let info = dispatch(pso: pso, input: image, output: out, uniforms: &uniforms) { enc in
+             enc.setTexture(image, index: 0)
+             enc.setTexture(out, index: 1)
+         }
++        
++        return info?.texture
+     }
+ }
+diff --git a/Sources/SnapCoreEngine/Processing/Illumination/IlluminanceDetection.swift b/Sources/SnapCoreEngine/Processing/Illumination/IlluminanceDetection.swift
+index 70ab450..3c75c50 100644
+--- a/Sources/SnapCoreEngine/Processing/Illumination/IlluminanceDetection.swift
++++ b/Sources/SnapCoreEngine/Processing/Illumination/IlluminanceDetection.swift
+@@ -71,7 +71,7 @@ extension IlluminanceDetection {
+             showDebug: showDebug ? 1 : 0
+         )
+         
+-        return dispatch(
++        let info = dispatch(
+             pso: pso,
+             input: image,
+             output: out,
+@@ -80,6 +80,8 @@ extension IlluminanceDetection {
+             enc.setTexture(image, index: 0)
+             enc.setTexture(out, index: 1)
+         }
++        
++        return info?.texture
+     }
+     
+     public func illuminance_recovery(
+@@ -97,7 +99,7 @@ extension IlluminanceDetection {
+             showDebug: showDebug ? 1 : 0
+         )
+         
+-        return dispatch(
++        let info = dispatch(
+             pso: pso,
+             input: image,
+             output: out,
+@@ -106,6 +108,8 @@ extension IlluminanceDetection {
+             enc.setTexture(image, index: 0)
+             enc.setTexture(out, index: 1)
+         }
++        
++        return info?.texture
+     }
+ }
+ 
+@@ -123,7 +127,7 @@ extension IlluminanceDetection {
+             radius: Int32(radius)
+         )
+         
+-        return dispatch(
++        let info = dispatch(
+             pso: pso,
+             input: image,
+             output: out,
+@@ -132,6 +136,8 @@ extension IlluminanceDetection {
+             enc.setTexture(image, index: 0)
+             enc.setTexture(out, index: 1)
+         }
++        
++        return info?.texture
+     }
+ }
+ 
+@@ -148,7 +154,7 @@ extension IlluminanceDetection {
+             contrastControl: preProcess(texture: image)
+         )
+         
+-        return dispatch(
++        let info = dispatch(
+             pso: pso,
+             input: image,
+             output: out,
+@@ -157,6 +163,8 @@ extension IlluminanceDetection {
+             enc.setTexture(image, index: 0)
+             enc.setTexture(out, index: 1)
+         }
++        
++        return info?.texture
+     }
+     
+     /**
+diff --git a/Sources/SnapCoreEngine/Processing/Lanczos/LanczosUpscaler.swift b/Sources/SnapCoreEngine/Processing/Lanczos/LanczosUpscaler.swift
+index 1decd0c..36ff84c 100644
+--- a/Sources/SnapCoreEngine/Processing/Lanczos/LanczosUpscaler.swift
++++ b/Sources/SnapCoreEngine/Processing/Lanczos/LanczosUpscaler.swift
+@@ -45,7 +45,7 @@ public final class LanczosUpscaler: MetalFilter {
+             kernelSize: Int32(kernelSize)
+         )
+         
+-        return dispatch(
++        let info = dispatch(
+             pso: pso,
+             input: image,
+             output: out,
+@@ -54,6 +54,8 @@ public final class LanczosUpscaler: MetalFilter {
+             enc.setTexture(image, index: 0)
+             enc.setTexture(out, index: 1)
+         }
++        
++        return info?.texture
+     }
+ }
+ 
+diff --git a/Sources/SnapCoreEngine/Processing/MetalFilter.swift b/Sources/SnapCoreEngine/Processing/MetalFilter.swift
+index ad36d8c..2b8936c 100644
+--- a/Sources/SnapCoreEngine/Processing/MetalFilter.swift
++++ b/Sources/SnapCoreEngine/Processing/MetalFilter.swift
+@@ -7,6 +7,11 @@
+ 
+ import MetalKit
+ 
++struct ProcessingInformation {
++    let texture: MTLTexture?
++    let gpuTime: CFTimeInterval
++}
++
+ protocol MetalFilter: AnyObject {
+     var ctx: MetalContext { get }
+     var queue: MTLCommandQueue! { get }
+@@ -39,7 +44,7 @@ extension MetalFilter {
+         output: MTLTexture,
+         uniforms: inout U,
+         setup: (MTLComputeCommandEncoder) -> Void
+-    ) -> MTLTexture? {
++    ) -> ProcessingInformation? {
+         guard let cmd = queue.makeCommandBuffer(),
+               let enc = cmd.makeComputeCommandEncoder() else { return nil }
+         
+@@ -60,6 +65,13 @@ extension MetalFilter {
+         cmd.commit()
+         cmd.waitUntilCompleted()
+         
+-        return output
++        let gpuTime = cmd.gpuEndTime - cmd.gpuStartTime
++        
++        let info = ProcessingInformation(
++            texture: output,
++            gpuTime: gpuTime
++        )
++        
++        return info
+     }
+ }
+diff --git a/Sources/SnapCoreEngine/Processing/Saturation/ImageSaturationAdjuster.swift b/Sources/SnapCoreEngine/Processing/Saturation/ImageSaturationAdjuster.swift
+index 8f254d7..6b71e2e 100644
+--- a/Sources/SnapCoreEngine/Processing/Saturation/ImageSaturationAdjuster.swift
++++ b/Sources/SnapCoreEngine/Processing/Saturation/ImageSaturationAdjuster.swift
+@@ -40,9 +40,11 @@ public final class ImageSaturationAdjuster: MetalFilter {
+         
+         var uniforms = SaturationUniforms(factor: factor)
+         
+-        return dispatch(pso: pso, input: image, output: out, uniforms: &uniforms) { enc in
++        let info = dispatch(pso: pso, input: image, output: out, uniforms: &uniforms) { enc in
+             enc.setTexture(image, index: 0)
+             enc.setTexture(out, index: 1)
+         }
++        
++        return info?.texture
+     }
+ }
+diff --git a/Sources/SnapCoreEngine/Processing/Sharpen/ImageSharpener.swift b/Sources/SnapCoreEngine/Processing/Sharpen/ImageSharpener.swift
+index 6370517..920f155 100644
+--- a/Sources/SnapCoreEngine/Processing/Sharpen/ImageSharpener.swift
++++ b/Sources/SnapCoreEngine/Processing/Sharpen/ImageSharpener.swift
+@@ -53,7 +53,7 @@ public final class ImageSharpener: MetalFilter {
+             detail: detail
+         )
+         
+-        return dispatch(
++        let info = dispatch(
+             pso: pso,
+             input: image,
+             output: out,
+@@ -62,5 +62,7 @@ public final class ImageSharpener: MetalFilter {
+             enc.setTexture(image, index: 0)
+             enc.setTexture(out, index: 1)
+         }
++        
++        return info?.texture
+     }
+ }

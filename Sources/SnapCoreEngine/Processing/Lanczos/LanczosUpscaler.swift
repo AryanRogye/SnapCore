@@ -45,7 +45,7 @@ public final class LanczosUpscaler: MetalFilter {
             kernelSize: Int32(kernelSize)
         )
         
-        return dispatch(
+        let info = dispatch(
             pso: pso,
             input: image,
             output: out,
@@ -54,6 +54,8 @@ public final class LanczosUpscaler: MetalFilter {
             enc.setTexture(image, index: 0)
             enc.setTexture(out, index: 1)
         }
+        
+        return info?.texture
     }
 }
 
