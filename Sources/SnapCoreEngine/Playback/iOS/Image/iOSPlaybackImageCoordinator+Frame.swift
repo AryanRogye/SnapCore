@@ -165,9 +165,18 @@ actor FrameCache {
         }
         
         let asset = asset(for: url)
-        let loadedDuration = (try? await asset.load(.duration)) ?? asset.duration
+        
+        let loadedDuration: CMTime
+        
+        do {
+            loadedDuration = try await asset.load(.duration)
+        } catch {
+            return 0
+        }
+        
         let seconds = loadedDuration.seconds
         let safeDuration = seconds.isFinite ? max(seconds, 0) : 0
+        
         durations[url] = safeDuration
         return safeDuration
     }

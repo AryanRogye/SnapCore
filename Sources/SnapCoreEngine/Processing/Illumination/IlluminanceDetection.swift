@@ -84,6 +84,35 @@ extension IlluminanceDetection {
         return info?.texture
     }
     
+    public func illuminance_sections_withInfo(
+        in image: MTLTexture,
+        threshold: Float,
+        recovery: Float,
+        showDebug: Bool,
+    ) -> ProcessingInformation? {
+        guard let pso = psoIlluminanceSections,
+              let out = makeOutputTexture(matching: image) else { return nil }
+        
+        var uniforms = IlluminanceRecoveryUniforms(
+            brightnessThreshold: threshold,
+            recovery: recovery,
+            showDebug: showDebug ? 1 : 0
+        )
+        
+        let info = dispatch(
+            pso: pso,
+            input: image,
+            output: out,
+            uniforms: &uniforms
+        ) { enc in
+            enc.setTexture(image, index: 0)
+            enc.setTexture(out, index: 1)
+        }
+        
+        return info
+    }
+
+    
     public func illuminance_recovery(
         in image: MTLTexture,
         threshold: Float,

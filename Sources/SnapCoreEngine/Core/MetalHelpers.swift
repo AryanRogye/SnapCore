@@ -26,6 +26,43 @@ public struct MetalHelpers {
 
     private static let supportedPixelBufferFormat: OSType = kCVPixelFormatType_32BGRA
     
+    public static func makeTexture(
+        from pixelBuffer: CVPixelBuffer,
+        plane: Int,
+        pixelFormat: MTLPixelFormat
+    ) throws -> MTLTexture? {
+        guard let cache = textureCache else {
+            throw MetalHelperError.invalidTextureCache
+        }
+
+        let width = CVPixelBufferGetWidthOfPlane(pixelBuffer, plane)
+        let height = CVPixelBufferGetHeightOfPlane(pixelBuffer, plane)
+        
+        var cvMetalTexture: CVMetalTexture?
+        
+        let status = CVMetalTextureCacheCreateTextureFromImage(
+            kCFAllocatorDefault,
+            cache,
+            pixelBuffer,
+            nil,
+            pixelFormat,
+            width,
+            height,
+            plane,
+            &cvMetalTexture
+        )
+        
+        guard status == kCVReturnSuccess else {
+            return nil
+        }
+        
+        guard let cvMetalTexture else {
+            return nil
+        }
+        
+        return CVMetalTextureGetTexture(cvMetalTexture)
+    }
+    
     public static func makeTexture(from pixelBuffer: CVPixelBuffer) throws -> MTLTexture? {
         guard let cache = textureCache else {
             throw MetalHelperError.invalidTextureCache

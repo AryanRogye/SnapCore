@@ -7,9 +7,9 @@
 
 import MetalKit
 
-struct ProcessingInformation {
-    let texture: MTLTexture?
-    let gpuTime: CFTimeInterval
+public struct ProcessingInformation {
+    public let texture: MTLTexture?
+    public let gpuTime: CFTimeInterval
 }
 
 protocol MetalFilter: AnyObject {

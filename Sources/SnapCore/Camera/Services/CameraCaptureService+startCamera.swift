@@ -28,7 +28,7 @@ extension CameraCaptureService {
             in: session
         )
         
-        try await setupFaceTrackingOutputs(
+        try setupFaceTrackingOutputs(
             for: cameraPosition,
             in: session,
             optimize: optimize,
@@ -183,8 +183,8 @@ extension CameraCaptureService {
         for position: CameraPosition,
         in session: AVCaptureSession,
         optimize: Bool,
-    ) async throws {
-        try await attachFaceTrackingOutput(
+    ) throws {
+        try attachFaceTrackingOutput(
             in: session,
             optimize: optimize,
             position: position,
@@ -214,9 +214,9 @@ extension CameraCaptureService {
         in session: AVCaptureSession,
         optimize: Bool,
         position: CameraPosition,
-    ) async throws {
+    ) throws {
         
-        let handler = await MultiFaceRecognitionHandler(
+        let handler = MultiFaceRecognitionHandler(
             optimize,
             orientation: position == .front ? .upMirrored : .right
         )

@@ -8,9 +8,8 @@
 
 import AVFoundation
 
-@MainActor
 final class RecordingDelegate: NSObject, AVCaptureFileOutputRecordingDelegate {
-    func fileOutput(_ output: AVCaptureFileOutput,
+    nonisolated func fileOutput(_ output: AVCaptureFileOutput,
                     didFinishRecordingTo outputFileURL: URL,
                     from connections: [AVCaptureConnection],
                     error: Error?) {
