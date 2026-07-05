@@ -20,8 +20,28 @@ public protocol ScreenshotProviding {
     /// - Returns: A `CGImage` of the captured content.
     /// - Throws: An error if the capture fails or permission is denied.
     func takeScreenshot() async -> CGImage?
+    func takeScreenshot(options: ScreenshotCaptureOptions) async -> CGImage?
     /// Captures a screenshot of a specific `NSScreen`.
     func takeScreenshot(of screen: NSScreen, croppingTo rect: CGRect) async -> CGImage?
+    func takeScreenshot(
+        of screen: NSScreen,
+        croppingTo rect: CGRect,
+        options: ScreenshotCaptureOptions
+    ) async -> CGImage?
+}
+
+public extension ScreenshotProviding {
+    func takeScreenshot(options: ScreenshotCaptureOptions) async -> CGImage? {
+        await takeScreenshot()
+    }
+
+    func takeScreenshot(
+        of screen: NSScreen,
+        croppingTo rect: CGRect,
+        options: ScreenshotCaptureOptions
+    ) async -> CGImage? {
+        await takeScreenshot(of: screen, croppingTo: rect)
+    }
 }
 
 #endif

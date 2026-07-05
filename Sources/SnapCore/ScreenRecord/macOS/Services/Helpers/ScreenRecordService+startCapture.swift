@@ -24,7 +24,10 @@ extension ScreenRecordService {
         config.colorSpaceName = CGColorSpace.displayP3
         config.queueDepth = 8
         
-        (config.width, config.height) = self.calculateWidthAndHeightOfDisplay(display: display)
+        (config.width, config.height) = self.calculateWidthAndHeightOfDisplay(
+            display: display,
+            filter: filter
+        )
         
         config.scalesToFit = false
         config.preservesAspectRatio = true

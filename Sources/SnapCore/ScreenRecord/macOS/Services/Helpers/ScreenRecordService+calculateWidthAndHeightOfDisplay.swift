@@ -10,34 +10,45 @@ import ScreenCaptureKit
 extension ScreenRecordService {
     
     internal func calculateWidthAndHeightOfDisplay(
-        display: SCDisplay
+        display: SCDisplay,
+        filter: SCContentFilter
     ) -> (width: Int, height: Int) {
-        
-        let pointWidth  = Int(display.frame.width.rounded(.down))
-        let pointHeight = Int(display.frame.height.rounded(.down))
-        
-        /// get the screen that matches with our displayID
-        let matchingScreen = NSScreen.screens.first { screen in
-            guard let screenNumber = screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? CGDirectDisplayID else { return false }
-            return screenNumber == display.displayID
-        }
+        let nativeDimensions = nativePixelDimensions(for: display, filter: filter)
         
         switch scale {
         case .normal, .medium, .high, .ultra:
-            let aspectRatio = CGFloat(pointWidth) / CGFloat(pointHeight)
+            let aspectRatio = CGFloat(nativeDimensions.width) / CGFloat(nativeDimensions.height)
             let height = scale.value
-            let width = Int(CGFloat(height) * aspectRatio)
+            let width = Int((CGFloat(height) * aspectRatio).rounded(.toNearestOrAwayFromZero))
             return (width, height)
         case .native:
-            /// scale factor lets us match it to what our screen is
-            let scaleFactor = matchingScreen?.backingScaleFactor ?? 2.0
-            /// setting this just for info
-            self.lastBackingScaleFactorUsed = scaleFactor
-            
-            let nativeWidth = Int(CGFloat(pointWidth) * scaleFactor)
-            let nativeHeight = Int(CGFloat(pointHeight) * scaleFactor)
-            return (nativeWidth, nativeHeight)
+            return (nativeDimensions.width, nativeDimensions.height)
         }
+    }
+
+    private func nativePixelDimensions(
+        for display: SCDisplay,
+        filter: SCContentFilter
+    ) -> (width: Int, height: Int) {
+        let pointPixelScale = max(CGFloat(filter.pointPixelScale), 1)
+        self.lastBackingScaleFactorUsed = pointPixelScale
+
+        let filterDimensions = (
+            width: max(1, Int((CGFloat(display.width) * pointPixelScale).rounded(.up))),
+            height: max(1, Int((CGFloat(display.height) * pointPixelScale).rounded(.up)))
+        )
+        let displayDimensions = (
+            width: Int(CGDisplayPixelsWide(display.displayID)),
+            height: Int(CGDisplayPixelsHigh(display.displayID))
+        )
+
+        guard displayDimensions.width > 0, displayDimensions.height > 0 else {
+            return filterDimensions
+        }
+
+        let filterArea = filterDimensions.width * filterDimensions.height
+        let displayArea = displayDimensions.width * displayDimensions.height
+        return displayArea >= filterArea ? displayDimensions : filterDimensions
     }
 }
 #endif

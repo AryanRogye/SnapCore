@@ -10,6 +10,14 @@ import ScreenCaptureKit
 
 extension ScreenshotService {
     public func takeScreenshot(of screen: NSScreen, croppingTo rect: CGRect) async -> CGImage? {
+        await takeScreenshot(of: screen, croppingTo: rect, options: .default)
+    }
+
+    public func takeScreenshot(
+        of screen: NSScreen,
+        croppingTo rect: CGRect,
+        options: ScreenshotCaptureOptions
+    ) async -> CGImage? {
         do {
             let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
             
@@ -23,7 +31,8 @@ extension ScreenshotService {
                 screen,
                 content: content,
                 excludedApps: excludedApps,
-                sourceRect: shouldCrop ? normalizedRect : nil
+                sourceRect: shouldCrop ? normalizedRect : nil,
+                options: options
             )
         } catch {
             return nil

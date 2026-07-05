@@ -49,6 +49,17 @@ final class ScreenshotProviderTests: XCTestCase {
         XCTAssertEqual(image?.width, 200, "Cropped image width should match crop rect")
         XCTAssertEqual(image?.height, 150, "Cropped image height should match crop rect")
     }
+
+    func testPixelAlignedCropRectRoundsOutward() {
+        let rect = CGRect(x: 10.25, y: 20.25, width: 100.2, height: 50.2)
+
+        let aligned = ScreenshotService.pixelAlignedSourceRect(rect, pointPixelScale: 2)
+
+        XCTAssertEqual(aligned.minX, 10, accuracy: 0.0001)
+        XCTAssertEqual(aligned.minY, 20, accuracy: 0.0001)
+        XCTAssertEqual(aligned.maxX, 110.5, accuracy: 0.0001)
+        XCTAssertEqual(aligned.maxY, 70.5, accuracy: 0.0001)
+    }
     
     // MARK: - Edge Cases
     

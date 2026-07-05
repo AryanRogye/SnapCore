@@ -14,6 +14,10 @@ extension ScreenshotService {
     /// Notes:
     /// - Requires Screen Recording permission on macOS.
     public func takeScreenshot() async -> CGImage? {
+        await takeScreenshot(options: .default)
+    }
+
+    public func takeScreenshot(options: ScreenshotCaptureOptions) async -> CGImage? {
         do {
             let content = try await SCShareableContent.excludingDesktopWindows(false, onScreenWindowsOnly: true)
             
@@ -29,10 +33,20 @@ extension ScreenshotService {
                 guard let mainScreen = NSScreen.main else {
                     throw NSError(domain: "ScreenshotError", code: -1, userInfo: [NSLocalizedDescriptionKey: "No screen available"])
                 }
-                return try await captureScreen(mainScreen, content: content, excludedApps: excludedApps)
+                return try await captureScreen(
+                    mainScreen,
+                    content: content,
+                    excludedApps: excludedApps,
+                    options: options
+                )
             }
             
-            return try await captureScreen(targetScreen, content: content, excludedApps: excludedApps)
+            return try await captureScreen(
+                targetScreen,
+                content: content,
+                excludedApps: excludedApps,
+                options: options
+            )
         } catch {
             return nil
         }

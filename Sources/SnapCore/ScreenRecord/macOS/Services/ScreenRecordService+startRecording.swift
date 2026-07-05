@@ -10,7 +10,7 @@ import ScreenCaptureKit
 
 extension ScreenRecordService {
     public func startRecording(
-        scale: VideoScale = .normal,
+        scale: VideoScale = .native,
         showsCursor: Bool = true,
         capturesAudio: Bool = true,
         fps: FPS = .fps120

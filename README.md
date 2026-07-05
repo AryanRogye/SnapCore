@@ -159,7 +159,7 @@ Task { @MainActor in
     // After a successful selection, later start calls reuse the cached display filter.
     // If permission is not granted, macOS will prompt on first start.
     recorder.startRecording(
-        scale: .high,
+        scale: .native,
         showsCursor: true,
         capturesAudio: true,
         fps: .fps120
@@ -218,10 +218,10 @@ recorder.onScreenFrame = { [weak self] sample in
   - `onScreenFrame: ((SendableSampleBuffer) async -> Void)?`: called for video frames.
   - `onAudioFrame: ((SendableSampleBuffer) async -> Void)?`: called for audio frames when enabled.
   - `hasScreenRecordPermission() -> Bool`: returns current Screen Recording authorization state.
-  - `startRecording(scale: VideoScale = .normal, showsCursor: Bool = true, capturesAudio: Bool = true, fps: FPS = .fps120)`: presents the system picker and begins streaming frames after selection.
+  - `startRecording(scale: VideoScale = .native, showsCursor: Bool = true, capturesAudio: Bool = true, fps: FPS = .fps120)`: presents the system picker and begins streaming frames after selection.
   - `stopRecording() async`: stops capture and releases resources.
   - `getCachedFilter() -> SCContentFilter?`: returns the last display filter selected from the system picker.
-  - `getLastScaleFactorUsed() -> CGFloat`: returns the backing scale factor used when computing native resolution.
+  - `getLastScaleFactorUsed() -> CGFloat`: returns the ScreenCaptureKit point-to-pixel scale used when computing native resolution.
   - `prepareRecordingOutput(url: URL)`: configures file recording for the next session.
   - `getRecordingOutputErrorMessage() -> String?`: returns the last recording-output error message reported by ScreenCaptureKit, if any.
 
@@ -230,7 +230,7 @@ recorder.onScreenFrame = { [weak self] sample in
   - `.medium`: targets a 1440-tall output while preserving display aspect ratio.
   - `.high`: targets a 2160-tall output while preserving display aspect ratio.
   - `.ultra`: targets a 4320-tall output while preserving display aspect ratio.
-  - `.native`: uses the selected display's native pixel dimensions.
+  - `.native`: uses the selected display's native pixel dimensions and is the default for highest-quality capture.
 
 - `FPS`
   - `.fps30`: records at 30 FPS.

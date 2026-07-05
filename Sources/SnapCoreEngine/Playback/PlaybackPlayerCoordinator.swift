@@ -54,7 +54,7 @@ public struct AudioFileInfo: FileInfo {
         start: Float64,
         end: Float64,
         timelineStart: Float64,
-        orientation: Int,
+        orientation: Int = 0,
         volume: CGFloat
     ) {
         self.url = url
