@@ -35,6 +35,9 @@ public final class AudioEngine {
         self.playerCoordinator = try await AudioPlayerCoordinator(audioInfo: audioInfo)
     }
     
+    public func updatePlayer() async throws {
+        try await playerCoordinator.updatePlayer()
+    }
     public func updatePlayer(with clip: AudioInfo) async throws {
         playerCoordinator.clips.append(clip)
         try await playerCoordinator.updatePlayer()
@@ -43,7 +46,6 @@ public final class AudioEngine {
     public func seek(to time: CMTime) {
         playerCoordinator.seek(to: time)
     }
-
     
     public func play() {
         playerCoordinator.play()
