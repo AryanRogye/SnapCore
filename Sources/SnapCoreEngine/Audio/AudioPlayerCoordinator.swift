@@ -8,7 +8,97 @@
 
 import AVFoundation
 
-@Observable
+struct CompositionResult {
+    let item: AVPlayerItem
+    let mix: AVMutableAudioMix?
+    let composition: AVMutableComposition
+    let duration: Double
+}
+
+enum AudioCompositionBuilder {
+    
+    private static var timelineTimescale: CMTimeScale {
+        600
+    }
+
+    static func build(from clips: [AudioInfoSnapshot]) async throws -> CompositionResult {
+        
+        let composition = AVMutableComposition()
+        var audioMixParams: [AVMutableAudioMixInputParameters] = []
+
+        for clip in clips {
+            do {
+                guard let url = clip.url else { continue }
+                
+                let asset = AVURLAsset(url: url)
+                guard let audioTrack = try await asset.loadTracks(withMediaType: .audio).first else {
+                    continue
+                }
+                
+                let assetDuration = try await asset.load(.duration)
+                
+                let sourceStart = CMTime(
+                    seconds: clip.start * assetDuration.seconds,
+                    preferredTimescale: self.timelineTimescale
+                )
+                
+                let sourceDuration = CMTime(
+                    seconds: (clip.end - clip.start) * assetDuration.seconds,
+                    preferredTimescale: self.timelineTimescale
+                )
+                
+                let sourceRange = CMTimeRange(
+                    start: sourceStart,
+                    duration: sourceDuration
+                )
+                
+                let insertTime = CMTime(
+                    seconds: clip.timelineStart,
+                    preferredTimescale: self.timelineTimescale
+                )
+                
+                guard let compositionTrack = composition.addMutableTrack(
+                    withMediaType: .audio,
+                    preferredTrackID: kCMPersistentTrackID_Invalid
+                ) else {
+                    continue
+                }
+                
+                try compositionTrack.insertTimeRange(
+                    sourceRange,
+                    of: audioTrack,
+                    at: insertTime
+                )
+                
+                let params = AVMutableAudioMixInputParameters(track: compositionTrack)
+                params.setVolume(Float(clip.volume), at: insertTime)
+                audioMixParams.append(params)
+            } catch {
+                continue
+            }
+        }
+        
+        let item = await AVPlayerItem(asset: composition)
+        
+        let mix: AVMutableAudioMix?
+        if !audioMixParams.isEmpty {
+            let a_mix = AVMutableAudioMix()
+            a_mix.inputParameters = audioMixParams
+            mix = a_mix
+        } else {
+            mix = nil
+        }
+        
+        return .init(
+            item: item,
+            mix: mix,
+            composition: composition,
+            duration: composition.duration.seconds
+        )
+    }
+}
+
+@MainActor
 final class AudioPlayerCoordinator {
     
     private struct AssetInfo {
@@ -23,99 +113,62 @@ final class AudioPlayerCoordinator {
         var audioTrack: AVAssetTrack
     }
     
-    @ObservationIgnored
-    public var player : AVPlayer
-    @ObservationIgnored
+    private var player : AVPlayer
     private var timeObserver: Any?
-    @ObservationIgnored
-    public var lastCompostion: AVMutableComposition?
+    private var totalDuration: Float64 = 0
+    private var updatePlayerTask: Task<Void, Never>?
+    
+    public var onProgress: (@MainActor (Double) -> Void)?
+    public var onCurrentTime: (@MainActor (CGFloat) -> Void)?
+    public var onTotalDuration: (@MainActor (Float64) -> Void)?
+    
+    public func updatePlayer(from clips: [AudioInfoSnapshot]) {
+        
+        updatePlayerTask?.cancel()
+        updatePlayerTask = Task(priority: .userInitiated) {
+            do {
+                let result = try await AudioCompositionBuilder.build(from: clips)
+                
+                try Task.checkCancellation()
 
-    public var progress: Double = 0
-    public var currentTime: CGFloat = 0
-    public var totalDuration: Float64 = 0
-    
-    var clips: [AudioInfo] = []
-    
-    public func updatePlayer() async throws {
-        
-        let composition = AVMutableComposition()
-        var audioMixParams: [AVMutableAudioMixInputParameters] = []
-        
-        for clip in clips {
-            guard let url = clip.url else { continue }
-            
-            let asset = AVURLAsset(url: url)
-            guard let audioTrack = try await asset.loadTracks(withMediaType: .audio).first else {
-                continue
-            }
-            
-            let assetDuration = try await asset.load(.duration)
-            
-            let sourceStart = CMTime(
-                seconds: clip.start * assetDuration.seconds,
-                preferredTimescale: timelineTimescale
-            )
-            
-            let sourceDuration = CMTime(
-                seconds: (clip.end - clip.start) * assetDuration.seconds,
-                preferredTimescale: timelineTimescale
-            )
-            
-            let sourceRange = CMTimeRange(
-                start: sourceStart,
-                duration: sourceDuration
-            )
-            
-            let insertTime = CMTime(
-                seconds: clip.timelineStart,
-                preferredTimescale: timelineTimescale
-            )
-            
-            guard let compositionTrack = composition.addMutableTrack(
-                withMediaType: .audio,
-                preferredTrackID: kCMPersistentTrackID_Invalid
-            ) else {
-                continue
-            }
-            
-            try compositionTrack.insertTimeRange(
-                sourceRange,
-                of: audioTrack,
-                at: insertTime
-            )
-            
-            let params = AVMutableAudioMixInputParameters(track: compositionTrack)
-            params.setVolume(Float(clip.volume), at: insertTime)
-            audioMixParams.append(params)
-        }
-        
-        let item = await AVPlayerItem(asset: composition)
-        
-        if !audioMixParams.isEmpty {
-            Task { @MainActor in
-                let mix = AVMutableAudioMix()
-                mix.inputParameters = audioMixParams
-                item.audioMix = mix
+                Task { @MainActor in
+                    if let mix = result.mix {
+                        result.item.audioMix = mix
+                    }
+                    self.player.replaceCurrentItem(with: result.item)
+                    self.setDuration(result.composition.duration.seconds)
+                }
+            } catch is CancellationError {
+                /// dont do anything
+            } catch {
+                /// dont do anything
             }
         }
-        
-        player.replaceCurrentItem(with: item)
-        await setDuration(composition.duration.seconds)
-        
-        lastCompostion = composition
     }
+
     
-    init(audioInfo: AudioInfo) async throws {
+    init(
+        audioInfo: AudioInfoSnapshot,
+    ) async throws {
         guard let url = audioInfo.url else {
             fatalError("Audio URL is nil For AudioPlayerCoordinator")
         }
         let asset = AVURLAsset(url: url)
         let playerItem = AVPlayerItem(asset: asset)
         player = AVPlayer(playerItem: playerItem)
-        self.clips.append(audioInfo)
         
-        try await updatePlayer()
+        updatePlayer(from: [audioInfo])
         addTimeObserver()
+    }
+    
+    public func setClosures(
+        onProgress: @escaping (Double) -> Void,
+        onCurrentTime: @escaping (CGFloat) -> Void,
+        onTotalDuration: @escaping (Float64) -> Void
+    ) {
+        self.onProgress = onProgress
+        self.onCurrentTime = onCurrentTime
+        self.onTotalDuration = onTotalDuration
     }
     
     deinit {
@@ -145,9 +198,11 @@ final class AudioPlayerCoordinator {
         player.seek(to: time)
     }
     
-    @MainActor
     private func setDuration(_ seconds: Float64) {
         totalDuration = seconds.isFinite && seconds > 0 ? seconds : 0
+        Task { @MainActor in
+            onTotalDuration?(totalDuration)
+        }
     }
 }
 
@@ -187,10 +242,12 @@ extension AudioPlayerCoordinator {
             guard let self else { return }
             
             let elapsed = CMTimeGetSeconds(time)
-            let duration = self.totalDuration
             
-            self.currentTime = elapsed
-            self.progress = duration > 0 ? elapsed / duration : 0
+            Task { @MainActor in
+                let duration = self.totalDuration
+                self.onCurrentTime?(elapsed)
+                self.onProgress?(duration > 0 ? elapsed / duration : 0)
+            }
         }
     }
 }

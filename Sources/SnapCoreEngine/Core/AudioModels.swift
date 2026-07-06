@@ -8,8 +8,28 @@
 import Foundation
 import AVFoundation
 
+struct AudioInfoSnapshot: Sendable {
+    let url: URL?
+    let start: Double
+    let end: Double
+    let timelineStart: Double
+    let volume: CGFloat
+    let duration: Double
+
+    @MainActor
+    public init(from audioInfo: AudioInfo) {
+        self.url = audioInfo.url
+        self.start = audioInfo.start
+        self.end = audioInfo.end
+        self.timelineStart = audioInfo.timelineStart
+        self.volume = audioInfo.volume
+        self.duration = audioInfo.duration
+    }
+}
+
 @Observable
-public final class AudioInfo: Sendable {
+@MainActor
+public final class AudioInfo {
     public var url: URL?
     public var start: Double          // normalized trim start
     public var end: Double            // normalized trim end

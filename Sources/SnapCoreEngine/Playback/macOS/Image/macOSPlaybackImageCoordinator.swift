@@ -155,10 +155,20 @@ public final class PlaybackImageCoordinator {
     }
 }
 
+private final class WeakPlaybackImageCoordinator: @unchecked Sendable {
+    weak var value: PlaybackImageCoordinator?
+    
+    init(_ value: PlaybackImageCoordinator) {
+        self.value = value
+    }
+}
+
 // MARK: - Observations
 extension PlaybackImageCoordinator {
     
     public func observeCursor() {
+        let coordinator = WeakPlaybackImageCoordinator(self)
+        
         withObservationTracking {
             _ = self.cursorConfig.innerColor
             _ = self.cursorConfig.outerColor
@@ -179,17 +189,17 @@ extension PlaybackImageCoordinator {
             _ = self.cursorShadowConfig.cursorShadowSharpX
             _ = self.cursorShadowConfig.cursorShadowSharpY
         } onChange: {
-            DispatchQueue.main.async { [weak self] in
-                guard let self else { return }
-                assignCursorImage()
-                if let originalCurrentFrame {
+            Task { @MainActor in
+                guard let coordinator = coordinator.value else { return }
+                coordinator.assignCursorImage()
+                if let originalCurrentFrame = coordinator.originalCurrentFrame {
                     do {
-                        try processImage(cgImage: originalCurrentFrame)
+                        try coordinator.processImage(cgImage: originalCurrentFrame)
                     } catch {
                         print("Error Processing Image in Observation: \(error.localizedDescription)")
                     }
                 }
-                self.observeCursor()
+                coordinator.observeCursor()
             }
         }
     }
@@ -198,6 +208,8 @@ extension PlaybackImageCoordinator {
     /// Sharpness
     /// Contrast
     public func observeValues() {
+        let coordinator = WeakPlaybackImageCoordinator(self)
+        
         withObservationTracking {
             _ = self.isAdjustingSharpness;
             _ = self.isAdjustingContrast
@@ -207,18 +219,17 @@ extension PlaybackImageCoordinator {
             _ = self.sharpness
             _ = self.contrast
         } onChange: {
-            DispatchQueue.main.async { [weak self] in
-                guard let self else { return }
-                
-                if let originalCurrentFrame {
+            Task { @MainActor in
+                guard let coordinator = coordinator.value else { return }
+                if let originalCurrentFrame = coordinator.originalCurrentFrame {
                     do {
-                        try processImage(cgImage: originalCurrentFrame)
+                        try coordinator.processImage(cgImage: originalCurrentFrame)
                     } catch {
                         print("Error Processing Image in Observation: \(error.localizedDescription)")
                     }
                 }
                 
-                observeValues()
+                coordinator.observeValues()
             }
         }
     }
