@@ -268,18 +268,26 @@ Task {
         return
     }
 
-    // 2) Receive BGRA pixel buffers
+    // 2) Select a camera
+    guard let device = await camera.searchSessions().first else {
+        print("No camera found")
+        return
+    }
+
+    // 3) Receive BGRA pixel buffers
     await camera.setOnPixelBuffer { pixelBuffer in
         let ciImage = CIImage(cvPixelBuffer: pixelBuffer)
         _ = ciContext.createCGImage(ciImage, from: ciImage.extent)
         // update preview / processing pipeline
     }
 
-    // 3) Start camera (front or back)
+    // 4) Start camera
     do {
         try await camera.startCamera(
-            .builtInWideAngleCamera,
-            cameraPosition: .front
+            with: device,
+            fps: .sixty,
+            cameraPosition: .front,
+            colorSpace: .sRGB
         )
     } catch {
         print("Failed to start camera: \(error)")
@@ -292,19 +300,129 @@ Task {
 }
 ```
 
+Your app must include `NSCameraUsageDescription` in its `Info.plist`. Sandboxed
+macOS apps must also enable the Camera capability.
+
+## Face Recognition (Detection and Tracking)
+
+Face tracking uses Vision to find every face in the camera stream and returns
+normalized face rectangles. Despite the internal `FaceRecognition` naming, this
+API performs face **detection**, not identity recognition: it can tell you where
+faces are, but it does not determine who a person is.
+
+Register the face callback before starting the face-tracking camera:
+
+```swift
+import AVFoundation
+import SnapCore
+
+let camera = CameraCaptureService()
+
+Task {
+    guard await camera.isAuthorized() else {
+        print("Camera permission required")
+        return
+    }
+
+    let devices = await camera.searchSessions()
+
+    #if os(iOS)
+    guard let device = devices.first(where: { $0.position == .front }) else {
+        print("No front camera found")
+        return
+    }
+    #else
+    guard let device = devices.first else {
+        print("No camera found")
+        return
+    }
+    #endif
+
+    await camera.setOnFaceBoxes { boxes, pixelBuffer, processingInterval in
+        // This callback runs on SnapCore's face-processing queue, not the main queue.
+        // `boxes` contains one normalized Vision CGRect per detected face.
+        print("Detected \(boxes.count) face(s)")
+        print("Frame size: \(CVPixelBufferGetWidth(pixelBuffer)) × \(CVPixelBufferGetHeight(pixelBuffer))")
+        print("Current processing interval: \(processingInterval) seconds")
+
+        Task { @MainActor in
+            // Store `boxes` in your view model or update your overlay here.
+        }
+    }
+
+    do {
+        try await camera.startCameraWithFaceTracking(
+            with: device,
+            fps: .sixty,
+            cameraPosition: .front,
+            colorSpace: .sRGB,
+            optimize: true
+        )
+    } catch {
+        print("Failed to start face tracking: \(error)")
+    }
+}
+
+// When the screen or feature is dismissed:
+Task {
+    await camera.stopCamera()
+}
+```
+
+Face-tracking mode uses its own video-output handler, so consume preview frames
+from the `pixelBuffer` passed to `setOnFaceBoxes`. The standard
+`setOnPixelBuffer` callback is used only by `startCamera`, not by
+`startCameraWithFaceTracking`.
+
+The returned rectangles use Vision coordinates: values are normalized from
+`0...1`, and the origin is at the lower-left. To draw them in a view whose
+origin is at the upper-left, scale and flip the Y axis:
+
+```swift
+func overlayRect(from visionRect: CGRect, in viewSize: CGSize) -> CGRect {
+    CGRect(
+        x: visionRect.minX * viewSize.width,
+        y: (1 - visionRect.maxY) * viewSize.height,
+        width: visionRect.width * viewSize.width,
+        height: visionRect.height * viewSize.height
+    )
+}
+```
+
+If the preview uses aspect-fill scaling, also account for its crop offset when
+placing the overlay.
+
+Set `optimize` to `true` for adaptive throttling: detection runs more frequently
+while faces move and less frequently while they remain stable. Set it to `false`
+to run detection for every delivered camera frame. The callback's
+`processingInterval` is the current target interval used by that adaptive
+throttle.
+
 ### Camera API reference
 
 - `CameraCaptureService`
   - `isAuthorized() async -> Bool`: checks/request camera permission.
+  - `searchSessions() async -> [AVCaptureDevice]`: returns the available video capture devices.
   - `setOnPixelBuffer(_:) async`: sets the frame callback.
-  - `startCamera(_:cameraPosition:) async throws`: starts capture for a device type and position.
+  - `setOnFaceBoxes(_:) async`: sets the face-detection callback; register it before starting face tracking.
+  - `startCamera(with:fps:cameraPosition:colorSpace:) async throws`: starts normal camera capture with a selected device.
+  - `startCameraWithFaceTracking(with:fps:cameraPosition:colorSpace:optimize:) async throws`: starts camera capture with Vision face detection.
   - `stopCamera() async`: stops capture and tears down session I/O.
   - `focus(at:in:) async`: focuses/exposes around a point in view coordinates.
   - `getSession() async -> AVCaptureSession?`: returns the current capture session.
 
+- `CameraFPS`
+  - `.sixty`
+  - `.onetwenty` (only when supported by the selected camera)
+
 - `CameraPosition`
   - `.front`
   - `.back`
+
+- `CameraColorSpace`
+  - `.sRGB`
+  - `.p3`
+  - `.hlg` (iOS only)
 
 ## SnapCoreEngine
 
