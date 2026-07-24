@@ -12,7 +12,7 @@ import AppKit
 import UIKit
 #endif
 
-public enum ExportError: Error {
+public enum ExportError: LocalizedError {
     case noVideoTrack
     case noAudioTrack
     case cannotAddReaderOutput
@@ -25,6 +25,35 @@ public enum ExportError: Error {
     case missingBaseAddress
     case contextCreationFailed
     case appendFailed
+    
+    public var errorDescription: String? {
+        switch self {
+        case .noVideoTrack:
+            return "No video track found."
+        case .noAudioTrack:
+            return "No audio track found."
+        case .cannotAddReaderOutput:
+            return "Cannot add reader output."
+        case .cannotAddWriterInput:
+            return "Cannot add writer input."
+        case .readerFailedToStart:
+            return "Reader failed to start."
+        case .writerFailedToStart(let reason):
+            return "Writer failed to start: \(reason)"
+        case .cgImageCreationFailed:
+            return "CGImage creation failed."
+        case .missingPixelBufferPool:
+            return "Missing pixel buffer pool."
+        case .pixelBufferCreationFailed:
+            return "Pixel buffer creation failed."
+        case .missingBaseAddress:
+            return "Missing base address."
+        case .contextCreationFailed:
+            return "Context creation failed."
+        case .appendFailed:
+            return "Failed to append sample buffer."
+        }
+    }
 }
 
 public final class Exporter {

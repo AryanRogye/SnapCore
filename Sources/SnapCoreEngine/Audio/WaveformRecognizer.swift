@@ -1,5 +1,5 @@
 //
-//  MatrixProfile.swift
+//  WaveformRecognizer.swift
 //  SnapCore
 //
 //  Created by Aryan Rogye on 7/5/26.
