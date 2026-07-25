@@ -107,7 +107,11 @@ public enum WaveformRecognizer {
             let mean = vDSP.mean(window)
             means[i] = mean
             
-            stds[i] = standardDeviation(of: window)
+            if #available(macOS 15.0, iOS 18.0, tvOS 18.0, watchOS 11.0, *) {
+                stds[i] = vDSP.standardDeviation(window)
+            } else {
+                stds[i] = standardDeviation(of: window)
+            }
         }
         
         /// verify data has this range
