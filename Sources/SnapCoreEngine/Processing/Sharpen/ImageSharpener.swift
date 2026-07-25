@@ -41,7 +41,7 @@ public final class ImageSharpener: MetalFilter {
         _ image: MTLTexture,
         sharpness: Float = 0.0,
         radius: Int = 1,
-        detail: Float = 0.1,
+        detail: Float = 0.1
     ) throws -> MTLTexture? {
         
         guard let pso = psoSharpen,

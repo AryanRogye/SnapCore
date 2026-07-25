@@ -110,7 +110,7 @@ struct MetalImageView: UIViewRepresentable {
             /// Bottom Right
             .init(pos: [1, -1]),
             /// Top Right
-            .init(pos: [1, 1]),
+            .init(pos: [1, 1])
         ]
         
         private weak var currentView: MTKView?

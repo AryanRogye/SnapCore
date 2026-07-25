@@ -12,7 +12,7 @@ extension CameraCaptureService {
         fps: CameraFPS,
         cameraPosition: CameraPosition,
         colorSpace: CameraColorSpace = .sRGB,
-        optimize: Bool,
+        optimize: Bool
     ) async throws {
         await stopCamera()
         
@@ -31,7 +31,7 @@ extension CameraCaptureService {
         try setupFaceTrackingOutputs(
             for: cameraPosition,
             in: session,
-            optimize: optimize,
+            optimize: optimize
         )
         
         session.commitConfiguration()
@@ -184,12 +184,12 @@ extension CameraCaptureService {
     private func setupFaceTrackingOutputs(
         for position: CameraPosition,
         in session: AVCaptureSession,
-        optimize: Bool,
+        optimize: Bool
     ) throws {
         try attachFaceTrackingOutput(
             in: session,
             optimize: optimize,
-            position: position,
+            position: position
         )
         configureVideoConnection(for: position)
     }
@@ -215,7 +215,7 @@ extension CameraCaptureService {
     private func attachFaceTrackingOutput(
         in session: AVCaptureSession,
         optimize: Bool,
-        position: CameraPosition,
+        position: CameraPosition
     ) throws {
         
         let handler = MultiFaceRecognitionHandler(

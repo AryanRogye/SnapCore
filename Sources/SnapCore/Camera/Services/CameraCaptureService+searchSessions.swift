@@ -13,7 +13,7 @@ extension CameraCaptureService {
         #if os(macOS)
         let discoverySession = AVCaptureDevice.DiscoverySession(
             deviceTypes: [
-                .builtInWideAngleCamera,
+                .builtInWideAngleCamera
             ],
             mediaType: .video,
             position: .unspecified

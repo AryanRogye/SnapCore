@@ -60,7 +60,7 @@ extension IlluminanceDetection {
         in image: MTLTexture,
         threshold: Float,
         recovery: Float,
-        showDebug: Bool,
+        showDebug: Bool
     ) -> MTLTexture? {
         guard let pso = psoIlluminanceSections,
               let out = makeOutputTexture(matching: image) else { return nil }
@@ -88,7 +88,7 @@ extension IlluminanceDetection {
         in image: MTLTexture,
         threshold: Float,
         recovery: Float,
-        showDebug: Bool,
+        showDebug: Bool
     ) -> ProcessingInformation? {
         guard let pso = psoIlluminanceSections,
               let out = makeOutputTexture(matching: image) else { return nil }
@@ -117,7 +117,7 @@ extension IlluminanceDetection {
         in image: MTLTexture,
         threshold: Float,
         recovery: Float,
-        showDebug: Bool,
+        showDebug: Bool
     ) -> MTLTexture? {
         guard let pso = psoRecovery,
               let out = makeOutputTexture(matching: image) else { return nil }
@@ -146,7 +146,7 @@ extension IlluminanceDetection {
     public func detect_illuminance_alternate(
         in image: MTLTexture,
         threshold: Float,
-        radius: Int,
+        radius: Int
     ) -> MTLTexture? {
         guard let pso = psoIlluminanceDetectionAlternate,
               let out = makeOutputTexture(matching: image) else { return nil }

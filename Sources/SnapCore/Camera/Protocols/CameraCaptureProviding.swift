@@ -51,7 +51,7 @@ public protocol CameraCaptureProviding {
         fps: CameraFPS,
         cameraPosition: CameraPosition,
         colorSpace: CameraColorSpace,
-        optimize: Bool,
+        optimize: Bool
     ) async throws
     
     /**

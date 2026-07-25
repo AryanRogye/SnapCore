@@ -232,7 +232,7 @@ public final class Exporter {
         audioTracks: [AVAssetTrack],
         startTime: CMTime,
         sharpness: Float,
-        contrast: Float,
+        contrast: Float
     ) async throws {
         let writer = try AVAssetWriter(outputURL: outputURL, fileType: .mp4)
 

@@ -273,7 +273,7 @@ struct ContentView: View {
                     } else {
                         CameraPreviewView(
                             vm: vm,
-                            flashOpacity: .constant(0),
+                            flashOpacity: .constant(0)
                         )
                         .modifier(overlayControls(
                             vm: vm,

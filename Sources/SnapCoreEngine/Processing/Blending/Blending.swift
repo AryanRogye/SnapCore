@@ -34,7 +34,7 @@ public final class Blending: MetalFilter {
     /// Alpha-composites `image` over `base` using `image.a` as a straight-alpha mask.
     public func blend(
         base: MTLTexture,
-        image: MTLTexture,
+        image: MTLTexture
     ) -> MTLTexture? {
         guard let pso = psoBlending,
               let out = makeOutputTexture(matching: base) else { return nil }

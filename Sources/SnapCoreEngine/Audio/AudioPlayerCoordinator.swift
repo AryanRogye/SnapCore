@@ -148,7 +148,7 @@ final class AudioPlayerCoordinator {
 
     
     init(
-        audioInfo: AudioInfoSnapshot,
+        audioInfo: AudioInfoSnapshot
     ) async throws {
         guard let url = audioInfo.url else {
             fatalError("Audio URL is nil For AudioPlayerCoordinator")

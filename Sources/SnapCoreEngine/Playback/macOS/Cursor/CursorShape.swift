@@ -207,13 +207,13 @@ public struct CursorShape: Shape {
             ZStack {
                 CursorShape(config: CursorConfig(
                     size: CGSize(width: 16, height: 16),
-                    lineWidth: 2,
+                    lineWidth: 2
                 ))
                 .fill(.black)
                 .overlay {
                     CursorShape(config: CursorConfig(
                         size: CGSize(width: 16, height: 16),
-                        lineWidth: 2,
+                        lineWidth: 2
                     ))
                     .stroke(.white, style: StrokeStyle(
                         lineWidth: 2,
