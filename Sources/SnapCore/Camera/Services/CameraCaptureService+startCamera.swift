@@ -7,7 +7,7 @@
 import AVFoundation
 
 extension CameraCaptureService {
-    public func startCameraWithFaceTracking(
+    public func startCameraWithBodyTracking(
         with device: AVCaptureDevice,
         fps: CameraFPS,
         cameraPosition: CameraPosition,
@@ -15,10 +15,10 @@ extension CameraCaptureService {
         optimize: Bool
     ) async throws {
         await stopCamera()
-        
+
         let session = AVCaptureSession()
         session.beginConfiguration()
-        
+
         try configureInput(
             with: device,
             for: device.deviceType,
@@ -27,16 +27,52 @@ extension CameraCaptureService {
             colorSpace: colorSpace,
             in: session
         )
-        
+
+        try setupBodyTrackingOutputs(
+            for: cameraPosition,
+            in: session,
+            optimize: optimize
+        )
+
+        session.commitConfiguration()
+        session.startRunning()
+
+        self.session = session
+        self.cameraState = .cameraStarted
+    }
+}
+
+extension CameraCaptureService {
+    public func startCameraWithFaceTracking(
+        with device: AVCaptureDevice,
+        fps: CameraFPS,
+        cameraPosition: CameraPosition,
+        colorSpace: CameraColorSpace = .sRGB,
+        optimize: Bool
+    ) async throws {
+        await stopCamera()
+
+        let session = AVCaptureSession()
+        session.beginConfiguration()
+
+        try configureInput(
+            with: device,
+            for: device.deviceType,
+            fps: fps,
+            position: cameraPosition,
+            colorSpace: colorSpace,
+            in: session
+        )
+
         try setupFaceTrackingOutputs(
             for: cameraPosition,
             in: session,
             optimize: optimize
         )
-        
+
         session.commitConfiguration()
         session.startRunning()
-        
+
         self.session = session
         self.cameraState = .cameraStarted
     }
@@ -50,10 +86,10 @@ extension CameraCaptureService {
         colorSpace: CameraColorSpace = .sRGB
     ) async throws {
         await stopCamera()
-        
+
         let session = AVCaptureSession()
         session.beginConfiguration()
-        
+
         /// We configure out input for the camera device type the user wants
         /// also if its facing front or back
         try configureInput(
@@ -64,19 +100,19 @@ extension CameraCaptureService {
             colorSpace: colorSpace,
             in: session
         )
-        
+
         try setupStandardOptions(
             for: cameraPosition,
             in: session
         )
-        
+
         session.commitConfiguration()
         session.startRunning()
-        
+
         self.session = session
         self.cameraState = .cameraStarted
     }
-    
+
     // MARK: - Private Helpers
 }
 
@@ -93,15 +129,15 @@ extension CameraCaptureService {
         in session: AVCaptureSession
     ) throws {
         try configureFPS(for: device, fps: fps, colorSpace: colorSpace)
-        
+
         let input = try AVCaptureDeviceInput(device: device)
-        
+
         guard session.canAddInput(input) else {
             throw CameraError.cantConfigure
         }
         session.addInput(input)
     }
-    
+
     private func configureFPS(
         for device: AVCaptureDevice,
         fps: CameraFPS,
@@ -110,21 +146,21 @@ extension CameraCaptureService {
         let targetFPS = Double(fps.rawValue)
         let targetColorSpace = colorSpace.avColorSpace
         let targetDuration = CMTime(value: 1, timescale: CMTimeScale(targetFPS.rounded()))
-        
+
         try device.lockForConfiguration()
         defer { device.unlockForConfiguration() }
-        
+
         func supportsFPS(_ format: AVCaptureDevice.Format) -> Bool {
             format.videoSupportedFrameRateRanges.contains { range in
                 range.minFrameRate <= targetFPS && targetFPS <= range.maxFrameRate
             }
         }
-        
+
         func pixelCount(_ format: AVCaptureDevice.Format) -> Int32 {
             let dims = CMVideoFormatDescriptionGetDimensions(format.formatDescription)
             return dims.width * dims.height
         }
-        
+
         // First try: format supports BOTH requested FPS and requested color space
         let bestFormat =
         device.formats
@@ -133,19 +169,19 @@ extension CameraCaptureService {
                 format.supportedColorSpaces.contains(targetColorSpace)
             }
             .max(by: { pixelCount($0) < pixelCount($1) })
-        
+
         // Fallback: supports FPS, but not requested color space
         ?? device.formats
             .filter { supportsFPS($0) }
             .max(by: { pixelCount($0) < pixelCount($1) })
-        
+
         guard let bestFormat else {
             print("❌ No format supports \(targetFPS) FPS")
             return
         }
-        
+
         device.activeFormat = bestFormat
-        
+
         // Apply color space
         let supportedColorSpaces = bestFormat.supportedColorSpaces
         if supportedColorSpaces.contains(targetColorSpace) {
@@ -156,7 +192,7 @@ extension CameraCaptureService {
         } else {
             print("⚠️ No supported color spaces found on selected format")
         }
-        
+
         // Apply exact FPS
         device.activeVideoMinFrameDuration = targetDuration
         device.activeVideoMaxFrameDuration = targetDuration
@@ -177,7 +213,23 @@ extension CameraCaptureService {
         try attachFrameOutput(to: session)
         configureVideoConnection(for: position)
     }
-    
+
+    /**
+     * Internal Public Facing API For Configuring Output with Body Tracking activated
+     */
+    private func setupBodyTrackingOutputs(
+        for position: CameraPosition,
+        in session: AVCaptureSession,
+        optimize: Bool
+    ) throws {
+        try attachBodyTrackingOutput(
+            in: session,
+            optimize: optimize,
+            position: position
+        )
+        configureVideoConnection(for: position)
+    }
+
     /**
      * Internal Public Facing API For Configuring Output with Face Tracking activated
      */
@@ -193,7 +245,7 @@ extension CameraCaptureService {
         )
         configureVideoConnection(for: position)
     }
-    
+
     /**
      * Sets up the PixelBuffer Stream. this is basically the live feed that hits the
      * frame handler delegate
@@ -207,7 +259,29 @@ extension CameraCaptureService {
             handler: frameHandler
         )
     }
-    
+
+    private func attachBodyTrackingOutput(
+        in session: AVCaptureSession,
+        optimize: Bool,
+        position: CameraPosition
+    ) throws {
+        let handler = BodyRecognitionHandler(
+            optimize,
+            orientation: position == .front ? .upMirrored : .right
+        )
+
+        if let onBodyResult {
+            handler.setOnBodyResult(onBodyResult)
+        }
+
+        self.bodyRecognitionHandler = handler
+
+        try addVideoOutput(
+            in: session,
+            handler: handler
+        )
+    }
+
     /**
      * for the FaceTracking, this is the live feel that hits
      * the frame ahndler delegate
@@ -217,18 +291,14 @@ extension CameraCaptureService {
         optimize: Bool,
         position: CameraPosition
     ) throws {
-        
         let handler = MultiFaceRecognitionHandler(
             optimize,
             orientation: position == .front ? .upMirrored : .right
         )
-        if let onPersonMask {
-            handler.setOnPersonMask(onPersonMask)
-        }
         if let onFaceBoxes {
             handler.setOnFaceBoxes(onFaceBoxes)
         }
-        
+
         self.multiFaceRecognitionHandler = handler
 
         try addVideoOutput(
@@ -236,7 +306,7 @@ extension CameraCaptureService {
             handler: handler
         )
     }
-    
+
     /**
      * Main Wrapper for Adding Video Output
      * Sets up the PixelBuffer Stream for whatever handler we may need
@@ -259,26 +329,26 @@ extension CameraCaptureService {
             handler,
             queue: DispatchQueue(label: "camera.pixel-buffer.frames")
         )
-        
+
         guard session.canAddOutput(videoOutput) else {
             throw CameraError.cantConfigure
         }
         session.addOutput(videoOutput)
 
     }
-    
+
     /**
      * Sets up the rotating/mirroring on the connection between the camera and the video output
      * this is a post setup step that only runs after both output and session are wired
      */
     private func configureVideoConnection(for position: CameraPosition) {
         guard let connection = videoOutput.connection(with: .video) else { return }
-        
+
         let angle: CGFloat = position == .front ? 0 : 90
         if connection.isVideoRotationAngleSupported(angle) {
             connection.videoRotationAngle = angle
         }
-        
+
         if position == .front && connection.isVideoMirroringSupported {
             connection.isVideoMirrored = true
         }

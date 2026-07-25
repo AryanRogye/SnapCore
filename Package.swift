@@ -62,7 +62,8 @@ let package = Package(
                 .copy("Processing/Saturation/Saturation.metal"),
                 .copy("Processing/Illumination/Illuminance.metal"),
                 .copy("Processing/Blending/Blending.metal"),
-                .copy("Processing/KernelNxN.metalh")
+                .copy("Processing/KernelNxN.metalh"),
+                .copy("UI/iOS/MetalImage.metal")
             ]
         ),
         .testTarget(

@@ -1,8 +1,8 @@
 //
 //  ContentView.swift
-//  FaceTrackingExample
+//  BodyTrackingExample
 //
-//  Created by Aryan Rogye on 7/24/26.
+//  Created by Aryan Rogye on 7/25/26.
 //
 
 import SwiftUI
@@ -19,14 +19,14 @@ enum CameraError: Error {
 @MainActor
 final class ViewModel {
 
-    let camera = CameraCaptureService()
+    let camera: CameraCaptureProviding = CameraCaptureService()
     let cameraActions: CameraActions
     let cameraCapture: CameraCapture
     var state: String = ""
     var message: String = ""
     let ciContext = CIContext()
     var texture: MTLTexture?
-    var faceBoxes: [CGRect] = []
+    var bodyPoses: [BodyPose] = []
 
     var cameraState: CameraState = .cameraStopped
 
@@ -37,7 +37,7 @@ final class ViewModel {
     }
 
     private func assignClosures() async {
-        await camera.setOnFaceBoxes { [weak self] boxes, pixelBuffer, processingInterval in
+        await camera.setOnBodyResult { [weak self] bodyPoses, pixelBuffer, processingInterval in
             guard let self else { return }
 
             guard let texture = try? MetalHelpers.makeTexture(from: pixelBuffer) else {
@@ -51,9 +51,9 @@ final class ViewModel {
                 guard let self else { return }
 
                 self.texture = texture
-                self.faceBoxes = boxes
+                self.bodyPoses = bodyPoses
                 self.message = """
-                Detected \(boxes.count) face(s)
+                Detected \(bodyPoses.count) body pose(s)
                 Frame size: \(width) × \(height)
                 Current processing interval: \(processingInterval) seconds
                 """
@@ -75,7 +75,7 @@ final class ViewModel {
         }
 
         do {
-            try await camera.startCameraWithFaceTracking(
+            try await camera.startCameraWithBodyTracking(
                 with: device,
                 fps: .sixty,
                 cameraPosition: .front,
@@ -84,7 +84,7 @@ final class ViewModel {
             )
             self.cameraState = await camera.getCameraState()
         } catch {
-            state = "Failed to start face tracking: \(error)"
+            state = "Failed to start body tracking: \(error)"
         }
     }
 
@@ -92,7 +92,6 @@ final class ViewModel {
         await camera.stopCamera()
         self.cameraState = await camera.getCameraState()
     }
-
 }
 
 @Observable
@@ -192,7 +191,6 @@ class CameraCapture {
         }
     }
 
-
     public func startCamera() async throws {
 
         if selectedDeviceID.isEmpty { return }
@@ -201,7 +199,7 @@ class CameraCapture {
             throw CameraError.cantConfigure
         }
 
-        try await cameraService.startCameraWithFaceTracking(
+        try await cameraService.startCameraWithBodyTracking(
             with: selectedDevice,
             fps: cameraFPS,
             cameraPosition: cameraPosition,
@@ -400,6 +398,36 @@ private struct CameraPreviewView: View {
     @State private var pinchStartZoom: CGFloat = 1.0
     @State private var isPinching = false
 
+    struct Bone: Hashable {
+        let from: BodyJoint
+        let to: BodyJoint
+    }
+
+    static let bonePairs: [Bone] = [
+        // Arms
+        Bone(from: .leftShoulder, to: .leftElbow),
+        Bone(from: .leftElbow, to: .leftWrist),
+        Bone(from: .rightShoulder, to: .rightElbow),
+        Bone(from: .rightElbow, to: .rightWrist),
+
+        // Shoulders/torso
+        Bone(from: .leftShoulder, to: .rightShoulder),
+        Bone(from: .leftShoulder, to: .leftHip),
+        Bone(from: .rightShoulder, to: .rightHip),
+        Bone(from: .leftHip, to: .rightHip),
+
+        // Legs
+        Bone(from: .leftHip, to: .leftKnee),
+        Bone(from: .leftKnee, to: .leftAnkle),
+        Bone(from: .rightHip, to: .rightKnee),
+        Bone(from: .rightKnee, to: .rightAnkle),
+
+        // Neck/head
+        Bone(from: .neck, to: .nose),
+        Bone(from: .leftShoulder, to: .neck),
+        Bone(from: .rightShoulder, to: .neck),
+    ]
+
     var body: some View {
         GeometryReader { geo in
             ZStack {
@@ -412,13 +440,28 @@ private struct CameraPreviewView: View {
                     height: geo.size.height
                 )
 
-                ForEach(vm.faceBoxes, id: \.self) { face in
-                    faceRect(
-                        previewWidth: geo.size.width,
-                        previewHeight: geo.size.height,
-                        normalizedFace: face
-                    )
-                    .allowsHitTesting(false)
+                ForEach(vm.bodyPoses, id: \.self) { pose in
+                    // Bones first, so joints render on top
+                    ForEach(Self.bonePairs, id: \.self) { bone in
+                        BoneLine(
+                            from: pose[bone.from],
+                            to: pose[bone.to],
+                            previewWidth: geo.size.width,
+                            previewHeight: geo.size.height
+                        )
+                        .allowsHitTesting(false)
+                    }
+
+                    // Then joints
+                    ForEach(pose.joints.sorted(by: { $0.key.rawValue < $1.key.rawValue }), id: \.key) { joint, point in
+                        bodyPoint(
+                            previewWidth: geo.size.width,
+                            previewHeight: geo.size.height,
+                            normalizedPoint: point.location,
+                            confidence: point.confidence
+                        )
+                        .allowsHitTesting(false)
+                    }
                 }
             }
             .frame(
@@ -436,27 +479,46 @@ private struct CameraPreviewView: View {
         }
     }
 
-    func faceRect(
+    func bodyPoint(
         previewWidth: CGFloat,
         previewHeight: CGFloat,
-        normalizedFace: CGRect
+        normalizedPoint: CGPoint,
+        confidence: Float
     ) -> some View {
-        let rect = normalizedFace
+        // Vision's origin is bottom-left, SwiftUI's is top-left, so flip y.
+        // Also mirrored for front camera preview, so flip x too.
+        let x = (1 - normalizedPoint.x) * previewWidth
+        let y = (1 - normalizedPoint.y) * previewHeight
 
-        let rectWidth = rect.width * previewWidth
-        let rectHeight = rect.height * previewHeight
+        return Circle()
+            .fill(.green)
+            .frame(width: 8, height: 8)
+            .opacity(confidence > 0.1 ? 1 : 0.2)
+            .position(x: x, y: y)
+    }
 
-        // Use this if front camera preview is mirrored
-        let x = (1 - rect.origin.x - rect.width) * previewWidth
-        let y = (1 - rect.origin.y - rect.height) * previewHeight
+    struct BoneLine: View {
+        let from: BodyJointPoint?
+        let to: BodyJointPoint?
+        let previewWidth: CGFloat
+        let previewHeight: CGFloat
 
-        return Rectangle()
-            .stroke(.green, lineWidth: 2)
-            .frame(width: rectWidth, height: rectHeight)
-            .position(
-                x: x + rectWidth / 2,
-                y: y + rectHeight / 2
+        var body: some View {
+            if let from, let to, from.confidence > 0.1, to.confidence > 0.1 {
+                Path { path in
+                    path.move(to: point(from))
+                    path.addLine(to: point(to))
+                }
+                .stroke(.green, lineWidth: 3)
+            }
+        }
+
+        private func point(_ p: BodyJointPoint) -> CGPoint {
+            CGPoint(
+                x: (1 - p.location.x) * previewWidth,
+                y: (1 - p.location.y) * previewHeight
             )
+        }
     }
 
     private func gesture(geo: GeometryProxy) -> some Gesture {
