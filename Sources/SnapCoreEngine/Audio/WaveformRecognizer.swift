@@ -59,6 +59,23 @@ public enum WaveformRecognizer {
         
         return motifs
     }
+    
+    private static func standardDeviation(
+        of values: ContiguousArray<Float>
+    ) -> Float {
+        guard !values.isEmpty else {
+            return 0
+        }
+        
+        let mean = values.reduce(0, +) / Float(values.count)
+        
+        let variance = values.reduce(0) { result, value in
+            let difference = value - mean
+            return result + difference * difference
+        } / Float(values.count)
+        
+        return sqrt(variance)
+    }
 
     private static func matrixProfile(in data: [Float], n: Int = 10) -> MatrixProfileResult {
         
@@ -89,7 +106,12 @@ public enum WaveformRecognizer {
             // recompute in the loop
             let mean = vDSP.mean(window)
             means[i] = mean
-            stds[i] = vDSP.standardDeviation(window)
+            
+            if #available(iOS 18.0, *) {
+                stds[i] = vDSP.standardDeviation(window)
+            } else {
+                stds[i] = standardDeviation(of: window)
+            }
         }
         
         /// verify data has this range

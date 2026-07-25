@@ -38,6 +38,7 @@ extension CameraCaptureService {
         session.startRunning()
         
         self.session = session
+        self.cameraState = .cameraStarted
     }
 }
 
@@ -73,6 +74,7 @@ extension CameraCaptureService {
         session.startRunning()
         
         self.session = session
+        self.cameraState = .cameraStarted
     }
     
     // MARK: - Private Helpers

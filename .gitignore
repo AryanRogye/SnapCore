@@ -1,31 +1,40 @@
-
-/Packages
-.swiftpm/configuration/registries.json
-.swiftpm/xcode/package.xcworkspace/contents.xcworkspacedata
-.netrc
-
+# macOS
 .DS_Store
-.vscode/
+._*
 
-DerivedData/
-build/
-Build/
-/.build
+# Swift Package Manager
+/.build/
+/.swiftpm/
+/Packages/
+/Package.resolved
 
-*.xcworkspace
+# Xcode
+/build/
+/Build/
+/DerivedData/
+xcuserdata/
 *.xcuserstate
-*.xcuserdata/
+*.xcuserdatad/
+*.xccheckout
+*.xcscmblueprint
+*.moved-aside
+*.xcarchive/
+*.dSYM/
 
-.build/
-Package.resolved
-.swiftpm/
+# Editors and local tooling
+.idea/
+.vscode/
+buildServer.json
 
-*.app
+# Local credentials and environment overrides
+.netrc
+.env
+.env.*
+!.env.example
+!.env.sample
+
+# Packaged application artifacts
+*.app/
 *.ipa
 *.dmg
-*.zip
-
-*.xcuserdatad
-*.moved-aside
-
-buildServer.json
+*.dSYM.zip

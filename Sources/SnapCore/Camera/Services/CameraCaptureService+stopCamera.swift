@@ -30,5 +30,6 @@ extension CameraCaptureService {
         session.stopRunning()
         
         self.session = nil
+        self.cameraState = .cameraStopped
     }
 }
