@@ -31,6 +31,9 @@ let package = Package(
         .target(
             name: "SnapCore",
             dependencies: [],
+            exclude: [
+                "Camera/ADDING_RECOGNITION_HANDLERS.md"
+            ],
             swiftSettings: [
                 .define("MACOS_ONLY", .when(platforms: [.macOS]))
             ],
