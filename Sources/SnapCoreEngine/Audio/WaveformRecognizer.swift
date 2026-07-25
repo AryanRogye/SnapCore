@@ -67,14 +67,20 @@ public enum WaveformRecognizer {
             return 0
         }
         
-        let mean = values.reduce(0, +) / Float(values.count)
-        
-        let variance = values.reduce(0) { result, value in
-            let difference = value - mean
-            return result + difference * difference
-        } / Float(values.count)
-        
-        return sqrt(variance)
+        var mean: Float = 0
+        var deviation: Float = 0
+        values.withUnsafeBufferPointer { buffer in
+            vDSP_normalize(
+                buffer.baseAddress!,
+                1,
+                nil,
+                1,
+                &mean,
+                &deviation,
+                vDSP_Length(values.count)
+            )
+        }
+        return deviation
     }
 
     private static func matrixProfile(in data: [Float], n: Int = 10) -> MatrixProfileResult {
@@ -107,11 +113,7 @@ public enum WaveformRecognizer {
             let mean = vDSP.mean(window)
             means[i] = mean
             
-            if #available(macOS 15.0, iOS 18.0, tvOS 18.0, watchOS 11.0, *) {
-                stds[i] = vDSP.standardDeviation(window)
-            } else {
-                stds[i] = standardDeviation(of: window)
-            }
+            stds[i] = standardDeviation(of: window)
         }
         
         /// verify data has this range

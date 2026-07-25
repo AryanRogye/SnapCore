@@ -13,7 +13,7 @@ concurrency:
 jobs:
   test:
     name: SwiftPM Tests (macOS, ${{ matrix.config }})
-    runs-on: macos-14
+    runs-on: macos-15
     timeout-minutes: 20
     permissions:
       contents: read
@@ -61,4 +61,3 @@ jobs:
 
       - name: Test (${{ matrix.config }})
         run: swift test -c ${{ matrix.config }} --parallel
-
