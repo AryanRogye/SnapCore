@@ -17,12 +17,14 @@ public actor CameraCaptureService: CameraCaptureProviding {
     internal var onFaceBoxes: (([CGRect], CVPixelBuffer, CFAbsoluteTime) -> Void)?
     internal var onBodyResult: (([BodyPose], CVPixelBuffer, CFAbsoluteTime) -> Void)?
     internal var onBody3DResult: (([BodyPose3D], CVPixelBuffer, CFAbsoluteTime) -> Void)?
+    internal var onHandResult: (([HandPose], CVPixelBuffer, CFAbsoluteTime) -> Void)?
     internal var cameraState: CameraState = .cameraStopped
 
     // Vision Framework Handlers
     internal var multiFaceRecognitionHandler: MultiFaceRecognitionHandler?
     internal var bodyRecognitionHandler: BodyRecognitionHandler?
     internal var body3DRecognitionHandler: Body3DRecognitionHandler?
+    internal var handRecognitionHandler: HandRecognitionHandler?
     internal var rotationCoordinator: AVCaptureDevice.RotationCoordinator?
     internal var rotationObservation: NSKeyValueObservation?
 

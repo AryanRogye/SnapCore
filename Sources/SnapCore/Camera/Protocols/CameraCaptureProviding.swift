@@ -37,6 +37,13 @@ public protocol CameraCaptureProviding {
     ) async
 
     /**
+     * Function sets what happens when capture starts with hand tracking
+     */
+    func setOnHandResult(
+        _ handler: @escaping ([HandPose], CVPixelBuffer, CFAbsoluteTime) -> Void
+    ) async
+
+    /**
      * Function returns if the camera is stopped or running
      */
     func getCameraState() async -> CameraState
@@ -72,6 +79,17 @@ public protocol CameraCaptureProviding {
      * routed through there
      */
     func startCameraWithFaceTracking(
+        with device: AVCaptureDevice,
+        fps: CameraFPS,
+        cameraPosition: CameraPosition,
+        colorSpace: CameraColorSpace,
+        optimize: Bool
+    ) async throws
+
+    /**
+     * Function starts the camera with hand tracking on
+     */
+    func startCameraWithHandTracking(
         with device: AVCaptureDevice,
         fps: CameraFPS,
         cameraPosition: CameraPosition,

@@ -7,6 +7,43 @@
 import AVFoundation
 
 extension CameraCaptureService {
+    public func startCameraWithHandTracking(
+        with device: AVCaptureDevice,
+        fps: CameraFPS,
+        cameraPosition: CameraPosition,
+        colorSpace: CameraColorSpace = .sRGB,
+        optimize: Bool
+    ) async throws {
+        await stopCamera()
+
+        let session = AVCaptureSession()
+        session.beginConfiguration()
+
+        try configureInput(
+            with: device,
+            for: device.deviceType,
+            fps: fps,
+            position: cameraPosition,
+            colorSpace: colorSpace,
+            in: session
+        )
+
+        try setupHandTrackingOutputs(
+            with: device,
+            for: cameraPosition,
+            in: session,
+            optimize: optimize
+        )
+
+        session.commitConfiguration()
+        session.startRunning()
+
+        self.session = session
+        self.cameraState = .cameraStarted
+    }
+}
+
+extension CameraCaptureService {
     public func startCameraWithBodyTracking(
         with device: AVCaptureDevice,
         fps: CameraFPS,
@@ -274,6 +311,20 @@ extension CameraCaptureService {
         configureVideoConnection(with: device, for: position)
     }
 
+    private func setupHandTrackingOutputs(
+        with device: AVCaptureDevice,
+        for position: CameraPosition,
+        in session: AVCaptureSession,
+        optimize: Bool
+    ) throws {
+        try attachHandTrackingOutput(
+            in: session,
+            optimize: optimize,
+            position: position
+        )
+        configureVideoConnection(with: device, for: position)
+    }
+
     /**
      * Internal Public Facing API For Configuring Output with Face Tracking activated
      */
@@ -344,6 +395,25 @@ extension CameraCaptureService {
             in: session,
             handler: handler
         )
+    }
+
+    private func attachHandTrackingOutput(
+        in session: AVCaptureSession,
+        optimize: Bool,
+        position: CameraPosition
+    ) throws {
+        let handler = HandRecognitionHandler(
+            optimize,
+            orientation: position == .front ? .upMirrored : .right
+        )
+
+        if let onHandResult {
+            handler.setOnHandResult(onHandResult)
+        }
+
+        self.handRecognitionHandler = handler
+
+        try addVideoOutput(in: session, handler: handler)
     }
 
     /**
