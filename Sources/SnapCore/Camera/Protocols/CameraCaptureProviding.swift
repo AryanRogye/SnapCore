@@ -44,6 +44,13 @@ public protocol CameraCaptureProviding {
     ) async
 
     /**
+     * Function sets what happens when capture starts with detailed face tracking
+     */
+    func setOnDetailedFaceResult(
+        _ handler: @escaping ([DetailedFace], CVPixelBuffer, CFAbsoluteTime) -> Void
+    ) async
+
+    /**
      * Function returns if the camera is stopped or running
      */
     func getCameraState() async -> CameraState
@@ -57,6 +64,21 @@ public protocol CameraCaptureProviding {
      * Function To get the current capture session
      */
     func getSession() async -> AVCaptureSession?
+
+    /**
+     * Function starts the camera with body, face, hand, and/or 3D tracking on
+     * this is the replacement to the old custom function that we had, use this
+     * instead of the old function, it also removes the need to call any other
+     * start functions
+     */
+    func startMultiRecognitionTracking(
+        with device: AVCaptureDevice,
+        fps: CameraFPS,
+        cameraPosition: CameraPosition,
+        colorSpace: CameraColorSpace,
+        optimize: Bool,
+        recognitionConfiguration: [MultiRecognitionConfiguration]
+    ) async throws
 
     /**
      * Function starts the camera with
@@ -90,6 +112,17 @@ public protocol CameraCaptureProviding {
      * Function starts the camera with hand tracking on
      */
     func startCameraWithHandTracking(
+        with device: AVCaptureDevice,
+        fps: CameraFPS,
+        cameraPosition: CameraPosition,
+        colorSpace: CameraColorSpace,
+        optimize: Bool
+    ) async throws
+
+    /**
+     * Function starts the camera with detailed face landmark tracking on
+     */
+    func startCameraWithDetailedFaceTracking(
         with device: AVCaptureDevice,
         fps: CameraFPS,
         cameraPosition: CameraPosition,

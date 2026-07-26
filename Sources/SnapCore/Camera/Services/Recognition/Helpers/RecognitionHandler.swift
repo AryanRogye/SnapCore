@@ -158,6 +158,35 @@ extension RecognitionHandler {
         return true
     }
 
+    /// Determines whether two arrays of detailed face results are close by.
+    internal func isCloseBy(
+        old: [DetailedFace],
+        new: [DetailedFace],
+        threshold: CGFloat = 0.08
+    ) -> Bool {
+        if old.count != new.count { return false }
+
+        var usedIndices = Set<Int>()
+        for oldFace in old {
+            var minAvgDistance: CGFloat = .infinity
+            var closestIndex: Int?
+
+            for (idx, newFace) in new.enumerated() {
+                guard !usedIndices.contains(idx) else { continue }
+                let avgDist = averageLandmarkDistance(oldFace, newFace)
+                if avgDist < minAvgDistance {
+                    minAvgDistance = avgDist
+                    closestIndex = idx
+                }
+            }
+
+            guard let idx = closestIndex, minAvgDistance < threshold else { return false }
+            usedIndices.insert(idx)
+        }
+
+        return true
+    }
+
     // MARK: - Private helpers
 
     /// Returns the average Euclidean distance between the joints that
@@ -221,6 +250,26 @@ extension RecognitionHandler {
             let dy = pA.location.y - pB.location.y
             totalDistance += sqrt(dx * dx + dy * dy)
             count += 1
+        }
+
+        return count > 0 ? totalDistance / count : .infinity
+    }
+
+    private func averageLandmarkDistance(_ a: DetailedFace, _ b: DetailedFace) -> CGFloat {
+        var totalDistance: CGFloat = 0
+        var count: CGFloat = 0
+
+        for region in DetailedFaceRegion.allCases {
+            guard let pointsA = a[region],
+                  let pointsB = b[region],
+                  pointsA.count == pointsB.count else { continue }
+
+            for (pointA, pointB) in zip(pointsA, pointsB) {
+                let dx = pointA.x - pointB.x
+                let dy = pointA.y - pointB.y
+                totalDistance += sqrt(dx * dx + dy * dy)
+                count += 1
+            }
         }
 
         return count > 0 ? totalDistance / count : .infinity

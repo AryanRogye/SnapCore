@@ -6,6 +6,44 @@
 //
 import AVFoundation
 
+// MARK: - Hand Tracking
+extension CameraCaptureService {
+    public func startCameraWithDetailedFaceTracking(
+        with device: AVCaptureDevice,
+        fps: CameraFPS,
+        cameraPosition: CameraPosition,
+        colorSpace: CameraColorSpace = .sRGB,
+        optimize: Bool
+    ) async throws {
+        await stopCamera()
+
+        let session = AVCaptureSession()
+        session.beginConfiguration()
+
+        try configureInput(
+            with: device,
+            for: device.deviceType,
+            fps: fps,
+            position: cameraPosition,
+            colorSpace: colorSpace,
+            in: session
+        )
+
+        try setupDetailedFaceTrackingOutputs(
+            with: device,
+            for: cameraPosition,
+            in: session,
+            optimize: optimize
+        )
+
+        session.commitConfiguration()
+        session.startRunning()
+
+        self.session = session
+        self.cameraState = .cameraStarted
+    }
+}
+
 extension CameraCaptureService {
     public func startCameraWithHandTracking(
         with device: AVCaptureDevice,
@@ -43,6 +81,8 @@ extension CameraCaptureService {
     }
 }
 
+
+// MARK: - 2D Body Tracking
 extension CameraCaptureService {
     public func startCameraWithBodyTracking(
         with device: AVCaptureDevice,
@@ -80,6 +120,8 @@ extension CameraCaptureService {
     }
 }
 
+
+// MARK: - 3D Body Tracking
 extension CameraCaptureService {
     public func startCameraWithBody3DTracking(
         with device: AVCaptureDevice,
@@ -119,6 +161,8 @@ extension CameraCaptureService {
     }
 }
 
+
+// MARK: - Face Tracking
 extension CameraCaptureService {
     public func startCameraWithFaceTracking(
         with device: AVCaptureDevice,
@@ -156,6 +200,49 @@ extension CameraCaptureService {
     }
 }
 
+
+// MARK: - Mutli Tracking
+extension CameraCaptureService {
+    public func startMultiRecognitionTracking(
+        with device: AVCaptureDevice,
+        fps: CameraFPS,
+        cameraPosition: CameraPosition,
+        colorSpace: CameraColorSpace,
+        optimize: Bool,
+        recognitionConfiguration: [MultiRecognitionConfiguration]
+    ) async throws {
+        await stopCamera()
+
+        let session = AVCaptureSession()
+        session.beginConfiguration()
+
+        try configureInput(
+            with: device,
+            for: device.deviceType,
+            fps: fps,
+            position: cameraPosition,
+            colorSpace: colorSpace,
+            in: session
+        )
+
+        try setupMutliTrackingOutputs(
+            with: device,
+            for: cameraPosition,
+            in: session,
+            optimize: optimize,
+            configuration: recognitionConfiguration,
+        )
+        
+        session.commitConfiguration()
+        session.startRunning()
+        
+        self.session = session
+        self.cameraState = .cameraStarted
+    }
+}
+
+
+// MARK: - No Tracking Regular Camera
 extension CameraCaptureService {
     public func startCamera(
         with device: AVCaptureDevice,
@@ -325,6 +412,36 @@ extension CameraCaptureService {
         configureVideoConnection(with: device, for: position)
     }
 
+    private func setupDetailedFaceTrackingOutputs(
+        with device: AVCaptureDevice,
+        for position: CameraPosition,
+        in session: AVCaptureSession,
+        optimize: Bool
+    ) throws {
+        try attachDetailedFaceTrackingOutput(
+            in: session,
+            optimize: optimize,
+            position: position
+        )
+        configureVideoConnection(with: device, for: position)
+    }
+
+    private func setupMutliTrackingOutputs(
+        with device: AVCaptureDevice,
+        for position: CameraPosition,
+        in session: AVCaptureSession,
+        optimize: Bool,
+        configuration: [MultiRecognitionConfiguration]
+    ) throws {
+        try attachMutliRecognitionOutput(
+            in: session,
+            optimize: optimize,
+            position: position,
+            configuration: configuration
+        )
+        configureVideoConnection(with: device, for: position)
+    }
+
     /**
      * Internal Public Facing API For Configuring Output with Face Tracking activated
      */
@@ -414,6 +531,95 @@ extension CameraCaptureService {
         self.handRecognitionHandler = handler
 
         try addVideoOutput(in: session, handler: handler)
+    }
+
+    private func attachDetailedFaceTrackingOutput(
+        in session: AVCaptureSession,
+        optimize: Bool,
+        position: CameraPosition
+    ) throws {
+        let handler = DetailedFaceRecognitionHandler(
+            optimize,
+            orientation: position == .front ? .upMirrored : .right
+        )
+
+        if let onDetailedFaceResult {
+            handler.setOnDetailedFaceResult(onDetailedFaceResult)
+        }
+
+        self.detailedFaceRecognizer = handler
+
+        try addVideoOutput(in: session, handler: handler)
+    }
+
+    private func attachMutliRecognitionOutput(
+        in session: AVCaptureSession,
+        optimize: Bool,
+        position: CameraPosition,
+        configuration: [MultiRecognitionConfiguration]
+    ) throws {
+
+        let handler = RecognitionDispatcher()
+        for config in configuration {
+            switch config {
+            case .none:
+                continue
+            case .body:
+                let h = BodyRecognitionHandler(
+                    optimize,
+                    orientation: position == .front ? .upMirrored : .right
+                )
+                if let onBodyResult {
+                    h.setOnBodyResult(onBodyResult)
+                }
+                handler.addHandler(h)
+            case .hand:
+                let h = HandRecognitionHandler(
+                    optimize,
+                    orientation: position == .front ? .upMirrored : .right
+                )
+                if let onHandResult {
+                    h.setOnHandResult(onHandResult)
+                }
+                handler.addHandler(h)
+            case .face:
+                let h = MultiFaceRecognitionHandler(
+                    optimize,
+                    orientation: position == .front ? .upMirrored : .right
+                )
+                if let onFaceBoxes {
+                    h.setOnFaceBoxes(onFaceBoxes)
+                }
+                handler.addHandler(h)
+            case .detailedFace:
+                let h = DetailedFaceRecognitionHandler(
+                    optimize,
+                    orientation: position == .front ? .upMirrored : .right
+                )
+                if let onDetailedFaceResult {
+                    h.setOnDetailedFaceResult(onDetailedFaceResult)
+                }
+                self.detailedFaceRecognizer = h
+                handler.addHandler(h)
+            case .body3D(let trackingMovement):
+                let h = Body3DRecognitionHandler(
+                    optimize,
+                    orientation: position == .front ? .upMirrored : .right,
+                    trackingMovement: trackingMovement
+                )
+                if let onBody3DResult {
+                    h.setOnBody3DResult(onBody3DResult)
+                }
+                handler.addHandler(h)
+            }
+        }
+
+        self.recognitionDispatcher = handler
+
+        try addVideoOutput(
+            in: session,
+            handler: handler
+        )
     }
 
     /**
