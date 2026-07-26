@@ -10,8 +10,11 @@ extension CameraCaptureService {
      * Function stops the camera
      */
     public func stopCamera() async {
+        rotationObservation = nil
+        rotationCoordinator = nil
+
         guard let session else { return }
-        
+
         if movieOutput.isRecording {
             movieOutput.stopRecording()
         }

@@ -23,6 +23,13 @@ public protocol CameraCaptureProviding {
     ) async
 
     /**
+     * Function sets what happens when capture starts with body 3D tracking
+     */
+    func setOnBody3DResult(
+        _ handler: @escaping ([BodyPose3D], CVPixelBuffer, CFAbsoluteTime) -> Void
+    ) async
+
+    /**
      * Function sets what happens when capture starts with face tracking
      */
     func setOnFaceBoxes(
@@ -65,6 +72,20 @@ public protocol CameraCaptureProviding {
      * routed through there
      */
     func startCameraWithFaceTracking(
+        with device: AVCaptureDevice,
+        fps: CameraFPS,
+        cameraPosition: CameraPosition,
+        colorSpace: CameraColorSpace,
+        optimize: Bool
+    ) async throws
+
+    /**
+     * Function starts the camera with
+     * body 3D tracking on, this means if anyone
+     * sets the handlers then they can get the 3D body poses
+     * routed through there
+     */
+    func startCameraWithBody3DTracking(
         with device: AVCaptureDevice,
         fps: CameraFPS,
         cameraPosition: CameraPosition,
