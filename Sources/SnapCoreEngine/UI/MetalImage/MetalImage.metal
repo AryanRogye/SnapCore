@@ -1,3 +1,4 @@
+// Shared Metal image shaders for iOS and macOS.
 #include <metal_stdlib>
 using namespace metal;
 

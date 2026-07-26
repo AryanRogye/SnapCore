@@ -22,7 +22,7 @@ Don't need the full recording pipeline? Every component is designed to be modula
 
 ### Recording & Playback
 - **120 FPS Capture**: Ultra-smooth recording via ScreenCaptureKit.
-- **Livestreaming**: Native support for encoded video streams (OutputStream/InputStream).
+- **Livestreaming**: macOS encoded-video sending with macOS/iOS stream decoding (OutputStream/InputStream).
 - **Cross-Platform Playback**: Unified engine for macOS and iOS.
 
 ---
@@ -268,6 +268,147 @@ recorder.onScreenFrame = { [weak self] sample in
   - `takeScreenshot() async -> CGImage?`: captures the active display as a `CGImage`.
   - `takeScreenshot(of: NSScreen, croppingTo: CGRect) async -> CGImage?`: captures a specific display and returns a cropped `CGImage` (coordinates in points, auto-mapped to pixels).
   - `static screenUnderMouse() -> NSScreen?`: convenience helper returning the display under the current mouse location.
+
+## iOS Screen Streaming
+
+SnapCore exposes ReplayKit capture primitives on iOS, but it does not choose a
+network protocol, encode the samples, or host a receiving server. Your app owns
+that part of the pipeline.
+
+There are two ReplayKit paths:
+
+- `ScreenCaptureService` captures your app while it is running in the
+  foreground and delivers video, app-audio, and microphone sample buffers.
+- `BroadcastController` opens Apple's system broadcast picker for a Broadcast
+  Upload Extension. Use this when capture must continue outside your app.
+
+The package's `RecordingConfig.livestream(OutputStream)` sender is currently
+macOS-only. It cannot be used to send iOS screen capture directly.
+
+### Stream the current app
+
+Create a transport that accepts ReplayKit sample buffers. The transport is
+responsible for encoding, framing, backpressure, reconnecting, and delivery to
+the destination.
+
+```swift
+import CoreMedia
+import ReplayKit
+import SnapCore
+
+protocol SampleBufferTransport: AnyObject {
+    func send(
+        _ sampleBuffer: CMSampleBuffer,
+        type: RPSampleBufferType
+    )
+}
+
+final class IOSScreenStreamer {
+    private let capture = ScreenCaptureService()
+    private let transport: SampleBufferTransport
+
+    init(transport: SampleBufferTransport) {
+        self.transport = transport
+
+        capture.onScreenCapture = { [weak self] sampleBuffer, type in
+            guard CMSampleBufferDataIsReady(sampleBuffer) else { return }
+
+            switch type {
+            case .video, .audioApp, .audioMic:
+                self?.transport.send(sampleBuffer, type: type)
+            @unknown default:
+                break
+            }
+        }
+
+        capture.onError = { error in
+            print("ReplayKit capture failed: \(error)")
+        }
+    }
+
+    func start(includeMicrophone: Bool = false) {
+        RPScreenRecorder.shared().isMicrophoneEnabled = includeMicrophone
+        capture.startCapture()
+    }
+
+    func stop() {
+        capture.stopCapture()
+    }
+}
+```
+
+For example, a transport can encode `.video` buffers with VideoToolbox and send
+the resulting H.264 packets over MultipeerConnectivity, WebRTC, a WebSocket, or
+another app-owned connection. App and microphone audio arrive separately; the
+transport must encode and mux them if the destination needs audio.
+
+`RPScreenRecorder.startCapture` records only your app's content. Stopping or
+backgrounding the app ends this in-process workflow.
+
+### Broadcast outside the app
+
+Device-wide broadcasting requires a separate Broadcast Upload Extension target
+in the consuming Xcode project. Pass that extension's bundle identifier to
+`BroadcastController`:
+
+```swift
+import SnapCore
+
+final class BroadcastViewModel {
+    private let broadcast = BroadcastController(
+        preferredExtension: "com.example.MyApp.BroadcastUpload"
+    )
+
+    func startBroadcast() {
+        // ReplayKit presents system UI; the user confirms the broadcast.
+        broadcast.startBroadcast()
+    }
+}
+```
+
+The upload extension receives ReplayKit samples in its
+`RPBroadcastSampleHandler`. A minimal extension entry point looks like this:
+
+```swift
+import CoreMedia
+import ReplayKit
+
+final class SampleHandler: RPBroadcastSampleHandler {
+    private let uploader = BroadcastUploader()
+
+    override func broadcastStarted(
+        withSetupInfo setupInfo: [String: NSObject]?
+    ) {
+        uploader.connect()
+    }
+
+    override func processSampleBuffer(
+        _ sampleBuffer: CMSampleBuffer,
+        with sampleBufferType: RPSampleBufferType
+    ) {
+        guard CMSampleBufferDataIsReady(sampleBuffer) else { return }
+        uploader.send(sampleBuffer, type: sampleBufferType)
+    }
+
+    override func broadcastFinished() {
+        uploader.disconnect()
+    }
+}
+```
+
+`BroadcastUploader` is intentionally application-specific; implement it inside
+the extension using the encoder and transport expected by your receiver.
+Broadcast extensions run in a separate, memory-constrained process, so keep
+queues bounded and avoid copying full-resolution frames unnecessarily. Use an
+App Group if the containing app must share configuration or credentials with
+the extension.
+
+### Receiving a SnapCore livestream on iOS
+
+If iOS is the receiver rather than the sender, use
+`LiveFileWritingDecoder.start(stream:)` with an `InputStream`. The complete
+macOS-sender/iOS-receiver example is in
+[Engine livestream decoding example](#engine-livestream-decoding-example).
 
 ## Camera Capture
 
@@ -558,12 +699,37 @@ throttle.
 - playback coordination
 - export helpers
 - Metal-backed image processing (lanczos upscaling, exposure, contrast, blur, sharpening, cursor compositing)
+- a shared Metal-backed SwiftUI image view for macOS and iOS
 
 The target now bundles its Metal shader files internally. Apps using `SnapCoreEngine` do not need to add `.metal` files to their app target or configure a separate Metal resource bundle.
 
 Current status: the engine target builds successfully, but the API is still WIP and may change.
 
 The examples below mirror the current `TestingSR` app integration. `PreviewView` and `EditorView` are app-owned SwiftUI views layered on top of `SnapCoreEngine`.
+
+### Cross-platform Metal image view
+
+`MetalImageView` displays an `MTLTexture` with a bindable pan-and-zoom viewport.
+The same API works on iOS and macOS; SnapCoreEngine selects
+`UIViewRepresentable` or `NSViewRepresentable` internally.
+
+```swift
+import Metal
+import SnapCoreEngine
+import SwiftUI
+
+struct TexturePreview: View {
+    @State private var viewport = MetalImageViewport()
+    let texture: MTLTexture?
+
+    var body: some View {
+        MetalImageView(
+            viewport: $viewport,
+            texture: texture
+        )
+    }
+}
+```
 
 ### Engine recording example
 
@@ -852,7 +1018,11 @@ struct ExportButton: View {
 
 ### Engine livestream decoding example
 
-`SnapCoreEngine` does not ship peer discovery or transport, but it does support streaming encoded video into any `OutputStream` and decoding it back from any `InputStream`. The [PHMirror](https://github.com/AryanRogye/PHMirror) app uses `MultipeerConnectivity` to provide those streams.
+`SnapCoreEngine` does not ship peer discovery or transport. On macOS, it can
+write encoded video to any `OutputStream`; on macOS or iOS, it can decode that
+video from an `InputStream`. The
+[PHMirror](https://github.com/AryanRogye/PHMirror) app uses
+`MultipeerConnectivity` to provide those streams.
 
 macOS host side:
 
@@ -912,7 +1082,7 @@ The stream transport layer is app-owned. [PHMirror](https://github.com/AryanRogy
 - iOS playback: you can initialize with `PlaybackEngine(url:)` or use `PlaybackEngine()` then `load(url:)`.
 - iOS scrubbing: use `previewSeek(to:)` for lightweight timeline preview seeks, and `seek(to:)` for committed seeks.
 - Timeline playback: `replaceAllFiles(video:audio:)` is `@MainActor`; video stays single-lane while audio clips can layer.
-- Livestreaming: `RecordingConfig.livestream(OutputStream)` writes encoded frames to an app-provided stream, and `LiveFileWritingDecoder` reconstructs frames from an `InputStream`.
+- Livestreaming: On macOS, `RecordingConfig.livestream(OutputStream)` writes encoded frames to an app-provided stream. On macOS and iOS, `LiveFileWritingDecoder` reconstructs frames from an `InputStream`.
 - Metal: `SnapCoreEngine` compiles its bundled shader sources internally from package resources. Consumer apps do not need extra Metal-specific setup beyond running on a Metal-capable Mac.
 - Recording models: `RecordingInfo` stores the captured file URL, preview image, frame metadata, display metadata, and whether a custom cursor should be rendered during playback/export.
 - Cursor rendering: `CursorConfig` is public and can be stored with SwiftData, which is how `TestingSR` saves and reloads cursor presets.

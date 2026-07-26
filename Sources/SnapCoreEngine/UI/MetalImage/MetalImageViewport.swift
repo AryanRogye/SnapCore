@@ -1,7 +1,6 @@
-#if os(iOS)
 import simd
 
-/// Describes the pan and zoom applied by a ``MetalImageView``.
+/// Describes the pan and zoom applied by a cross-platform ``MetalImageView``.
 public struct MetalImageViewport {
     /// The viewport's normalized pan offset.
     public var origin: SIMD2<Float>
@@ -18,4 +17,3 @@ public struct MetalImageViewport {
         self.scale = scale
     }
 }
-#endif

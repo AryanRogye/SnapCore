@@ -50,7 +50,7 @@ public final class MetalContext {
             ("Saturation", "metal", "Processing/Saturation"),
             ("Illuminance", "metal", "Processing/Illumination"),
             ("Blending", "metal", "Processing/Blending"),
-            ("MetalImage", "metal", "UI/iOS")
+            ("MetalImage", "metal", "UI/MetalImage")
         ]
         
         let source = (
