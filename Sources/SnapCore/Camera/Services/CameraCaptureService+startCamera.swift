@@ -49,7 +49,8 @@ extension CameraCaptureService {
         fps: CameraFPS,
         cameraPosition: CameraPosition,
         colorSpace: CameraColorSpace = .sRGB,
-        optimize: Bool
+        optimize: Bool,
+        trackingMovement: Bool = false
     ) async throws {
         await stopCamera()
 
@@ -69,7 +70,8 @@ extension CameraCaptureService {
             with: device,
             for: cameraPosition,
             in: session,
-            optimize: optimize
+            optimize: optimize,
+            trackingMovement: trackingMovement
         )
 
         session.commitConfiguration()
@@ -296,12 +298,14 @@ extension CameraCaptureService {
         with device: AVCaptureDevice,
         for position: CameraPosition,
         in session: AVCaptureSession,
-        optimize: Bool
+        optimize: Bool,
+        trackingMovement: Bool
     ) throws {
         try attachBody3DTrackingOutput(
             in: session,
             optimize: optimize,
-            position: position
+            position: position,
+            trackingMovement: trackingMovement
         )
         configureVideoConnection(with: device, for: position)
     }
@@ -370,11 +374,13 @@ extension CameraCaptureService {
     private func attachBody3DTrackingOutput(
         in session: AVCaptureSession,
         optimize: Bool,
-        position: CameraPosition
+        position: CameraPosition,
+        trackingMovement: Bool
     ) throws {
         let handler = Body3DRecognitionHandler(
             optimize,
-            orientation: position == .front ? .upMirrored : .right
+            orientation: position == .front ? .upMirrored : .right,
+            trackingMovement: trackingMovement
         )
 
         if let onBody3DResult {

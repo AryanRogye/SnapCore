@@ -9,8 +9,10 @@ import Vision
 final class Body3DRecognitionHandler: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate, RecognitionHandler {
     let optimized: Bool
     let orientation: CGImagePropertyOrientation
+    let trackingMovement: Bool
 
-    init(_ optimized: Bool, orientation: CGImagePropertyOrientation) {
+    init(_ optimized: Bool, orientation: CGImagePropertyOrientation, trackingMovement: Bool) {
+        self.trackingMovement = trackingMovement
         self.optimized = optimized
         self.orientation = orientation
     }
@@ -23,7 +25,7 @@ final class Body3DRecognitionHandler: NSObject, AVCaptureVideoDataOutputSampleBu
     }
 
     private let processingQueue = DispatchQueue(label: "body3d.processing", qos: .userInitiated)
-    private let processingGate = DispatchSemaphore(value: 2)
+    private let processingGate = DispatchSemaphore(value: 1)
     private let throttle = AdaptiveThrottle(stableFPS: 2.6, movingFPS: 15, startMoving: true)
 
     func captureOutput(_ output: AVCaptureOutput,
@@ -94,9 +96,17 @@ final class Body3DRecognitionHandler: NSObject, AVCaptureVideoDataOutputSampleBu
                     ) else {
                         continue
                     }
+                    
+                    let position: simd_float4x4
+                    
+                    if trackingMovement {
+                        position = observation.cameraRelativePosition(for: jointName)
+                    } else {
+                        position = joint.position
+                    }
 
                     jointMap[body3DJoint] = Body3DJointPoint(
-                        position: joint.position,
+                        position: position,
                         imagePoint: observation.pointInImage(
                             for: jointName
                         ).cgPoint
@@ -135,8 +145,17 @@ final class Body3DRecognitionHandler: NSObject, AVCaptureVideoDataOutputSampleBu
                 let recognizedPoints = try observation.recognizedPoints(.all)
                 for (key, value) in recognizedPoints {
                     guard let body3DJoint = Body3DJoint(from: key) else { continue }
+                    
+                    let position: simd_float4x4
+                    
+                    if trackingMovement {
+                        position = try observation.cameraRelativePosition(key)
+                    } else {
+                        position = value.position
+                    }
+                    
                     jointMap[body3DJoint] = Body3DJointPoint(
-                        position: value.position,
+                        position: position,
                         imagePoint: try? observation.pointInImage(key).location
                     )
                 }
