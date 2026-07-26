@@ -29,13 +29,16 @@ Don't need the full recording pipeline? Every component is designed to be modula
 
 SnapCore is a Swift package for Apple platforms with two library products:
 
-- `SnapCore`: screenshot capture and screen-recording primitives for macOS.
+- `SnapCore`: screenshot and screen-recording primitives for macOS, plus
+  camera capture and Vision-powered recognition on macOS and iOS.
 - `SnapCoreEngine`: a higher-level recording/playback/export layer built on top of `SnapCore`, with playback/export APIs that also support iOS. This target is still WIP and its API may change.
 
 - Build: `swift build`
 - Test: `swift test`
 
-Note: Real capture and recording require macOS Screen Recording permission. Tests use mocks to avoid prompts.
+Note: Real screen capture and recording require macOS Screen Recording
+permission. Camera examples require camera permission on macOS or iOS. Tests
+use mocks and model-level inputs to avoid permission prompts.
 
 ### Requirements
 
@@ -49,6 +52,8 @@ The package uses modern Swift concurrency APIs (`async`, actors, `@MainActor`) w
 ## Products
 
 - `SnapCore`: the stable low-level capture library for macOS screenshot and screen-recording flows.
+- Camera capture in `SnapCore` supports raw pixel buffers, 2D body pose
+  tracking, 3D body pose tracking, and multi-face detection on macOS and iOS.
 - `SnapCoreEngine`: the higher-level engine target for recording, playback, export, livestream decoding, and Metal-backed image processing. It is currently WIP and not yet fully documented as a stable public API surface.
 
 ## Installation
@@ -89,6 +94,23 @@ Local development alternative:
 ```swift
 .package(path: "../SnapCore")
 ```
+
+## Examples
+
+The repository includes three iOS SwiftUI camera examples:
+
+- [`BodyTrackingExample`](./Examples/BodyTrackingExample): renders a live
+  camera preview with Vision 2D body joints and skeleton connections.
+- [`ThreeDBodyTrackingExample`](./Examples/ThreeDBodyTrackingExample): renders
+  projected joints from Vision 3D body-pose observations and exposes their
+  world-space transforms.
+- [`FaceTrackingExample`](./Examples/FaceTrackingExample): draws normalized
+  face bounding boxes over a live preview.
+
+Each example supports front/back camera switching, focus, zoom, and a
+Metal-backed preview. Open its `.xcodeproj` in Xcode and run it on a physical
+iOS device. Camera behavior and Vision availability vary by hardware, so a
+physical-device run is the authoritative integration check.
 
 ## Screenshots
 
@@ -303,6 +325,106 @@ Task {
 Your app must include `NSCameraUsageDescription` in its `Info.plist`. Sandboxed
 macOS apps must also enable the Camera capability.
 
+The camera output uses `AVCaptureDevice.RotationCoordinator`, so its pixel
+buffers stay horizon-level across iPhone and iPad camera mounting differences
+and update when the device rotates. Front-camera output remains mirrored for a
+selfie-style preview; back-camera output is not mirrored.
+
+## 2D Body Pose Tracking
+
+2D body tracking uses Vision to return normalized image-space joints for every
+detected person. Register the callback before starting the tracking session:
+
+```swift
+import AVFoundation
+import SnapCore
+
+let camera = CameraCaptureService()
+
+Task {
+    guard await camera.isAuthorized() else { return }
+    guard let device = await camera.searchSessions()
+        .first(where: { $0.position == .front }) else {
+        return
+    }
+
+    await camera.setOnBodyResult { poses, pixelBuffer, processingInterval in
+        for pose in poses {
+            if let wrist = pose[.leftWrist] {
+                // Vision coordinates are normalized with a lower-left origin.
+                print("Left wrist:", wrist.location, wrist.confidence)
+            }
+        }
+
+        // Use pixelBuffer for the live preview.
+        print("Current processing interval:", processingInterval)
+    }
+
+    try await camera.startCameraWithBodyTracking(
+        with: device,
+        fps: .sixty,
+        cameraPosition: .front,
+        colorSpace: .sRGB,
+        optimize: true
+    )
+}
+```
+
+`BodyPose` stores joints by `BodyJoint`. Each `BodyJointPoint` contains a
+normalized `location` and Vision `confidence`. With `optimize: true`, SnapCore
+adaptively reduces recognition frequency while poses are stable.
+
+## 3D Body Pose Tracking
+
+3D body tracking returns a `BodyPose3D` for each detected person. Each
+`Body3DJointPoint` contains Vision's 4×4 transform, a convenient
+three-dimensional `translation`, and an optional normalized projection into
+the source image:
+
+```swift
+import AVFoundation
+import SnapCore
+
+let camera = CameraCaptureService()
+
+Task {
+    guard await camera.isAuthorized() else { return }
+    guard let device = await camera.searchSessions()
+        .first(where: { $0.position == .front }) else {
+        return
+    }
+
+    await camera.setOnBody3DResult { poses, pixelBuffer, processingInterval in
+        for pose in poses {
+            guard let head = pose[.centerHead] else { continue }
+
+            print("World-space head translation:", head.translation)
+            if let imagePoint = head.imagePoint {
+                // Normalized source-image coordinates with a lower-left origin.
+                print("Projected head position:", imagePoint)
+            }
+        }
+
+        // Use pixelBuffer for the live preview.
+        print("Current processing interval:", processingInterval)
+    }
+
+    try await camera.startCameraWithBody3DTracking(
+        with: device,
+        fps: .sixty,
+        cameraPosition: .front,
+        colorSpace: .sRGB,
+        optimize: true
+    )
+}
+```
+
+The implementation uses the modern Vision request API where available and
+falls back to `VNDetectHumanBodyPose3DRequest` on older supported systems.
+Projected `imagePoint` values may be absent when Vision cannot project a joint.
+As with 2D tracking, `optimize: true` enables stability-based adaptive
+throttling.
+
 ## Face Recognition (Detection and Tracking)
 
 Face tracking uses Vision to find every face in the camera stream and returns
@@ -404,8 +526,12 @@ throttle.
   - `isAuthorized() async -> Bool`: checks/request camera permission.
   - `searchSessions() async -> [AVCaptureDevice]`: returns the available video capture devices.
   - `setOnPixelBuffer(_:) async`: sets the frame callback.
+  - `setOnBodyResult(_:) async`: sets the 2D body-pose callback; register it before starting 2D tracking.
+  - `setOnBody3DResult(_:) async`: sets the 3D body-pose callback; register it before starting 3D tracking.
   - `setOnFaceBoxes(_:) async`: sets the face-detection callback; register it before starting face tracking.
   - `startCamera(with:fps:cameraPosition:colorSpace:) async throws`: starts normal camera capture with a selected device.
+  - `startCameraWithBodyTracking(with:fps:cameraPosition:colorSpace:optimize:) async throws`: starts camera capture with Vision 2D body-pose tracking.
+  - `startCameraWithBody3DTracking(with:fps:cameraPosition:colorSpace:optimize:) async throws`: starts camera capture with Vision 3D body-pose tracking.
   - `startCameraWithFaceTracking(with:fps:cameraPosition:colorSpace:optimize:) async throws`: starts camera capture with Vision face detection.
   - `stopCamera() async`: stops capture and tears down session I/O.
   - `focus(at:in:) async`: focuses/exposes around a point in view coordinates.

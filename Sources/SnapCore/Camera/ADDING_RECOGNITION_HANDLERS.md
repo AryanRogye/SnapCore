@@ -31,7 +31,8 @@ For example,
 uses `[CGRect]` because that is already what
 `VNFaceObservation.boundingBox` provides. Body recognition uses `BodyPose`
 because the source data is keyed by Vision joint names and split across
-multiple joint groups.
+multiple joint groups. 3D body recognition uses `BodyPose3D` to expose both
+joint transforms and their optional projections into the source image.
 
 ---
 
@@ -55,7 +56,7 @@ Create `XRecognitionHandler.swift`, mirroring
 
 If adaptive throttling compares old and new results, implement comparison logic
 for the new result type. The shared `RecognitionHandler.isCloseBy` overloads
-currently support only `[CGRect]` and `[BodyPose]`.
+currently support `[CGRect]`, `[BodyPose]`, and `[BodyPose3D]`.
 
 ---
 
@@ -144,9 +145,12 @@ Add an `attachXTrackingOutput` helper. It must:
 3. Store the handler in `xRecognitionHandler` so the delegate remains alive.
 4. Pass the handler to `addVideoOutput(in:handler:)`.
 
-The existing orientation mapping is `.upMirrored` for the front camera and
-`.right` for the back camera. Follow the existing handlers unless the selected
-Vision request requires different orientation handling.
+The existing Vision orientation mapping is `.upMirrored` for the front camera
+and `.right` for the back camera. Follow the existing handlers unless the
+selected Vision request requires different orientation handling. The capture
+connection itself uses `AVCaptureDevice.RotationCoordinator` to account for
+camera mounting and device rotation; do not add a second hard-coded
+front/back rotation to a new handler.
 
 Recognition handlers receive the one `AVCaptureVideoDataOutput` stream. A
 pixel-buffer-driven preview should use the `CVPixelBuffer` delivered with the
@@ -173,7 +177,9 @@ In `CameraCaptureService+startCamera.swift`, implement
 ## 8. Verify the implementation
 
 - Add deterministic tests for custom model conversion and stability-comparison
-  logic. Do not use a live camera in unit tests.
+  logic. `Body3DPoseRecognitionTests` is an example for transform extraction,
+  joint-name mapping, and three-dimensional displacement. Do not use a live
+  camera in unit tests.
 - Run `swift build`.
 - Run `swift test`.
 - Test live capture separately with camera permission on macOS or iOS as
