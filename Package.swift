@@ -14,17 +14,8 @@ let package = Package(
             name: "SnapCore",
             targets: ["SnapCore"]
         ),
-        .library(
-            name: "SnapCoreEngine",
-            targets: ["SnapCoreEngine"]
-        )
     ],
-    dependencies: [
-        .package(
-            url: "https://github.com/apple/swift-collections.git",
-            .upToNextMajor(from: "1.4.0")
-        )
-    ],
+    dependencies: [],
     // MARK: - Targets
     targets: [
         // MARK: - Core
@@ -49,33 +40,9 @@ let package = Package(
                 .linkedFramework("CoreGraphics")
             ]
         ),
-        .target(
-            name: "SnapCoreEngine",
-            dependencies: [
-                "SnapCore",
-                .product(name: "Collections", package: "swift-collections")
-            ],
-            resources: [
-                .copy("Processing/Contrast/Contrast.metal"),
-                .copy("Processing/Sharpen/Sharpen.metal"),
-                .copy("Processing/Cursor/Cursor.metal"),
-                .copy("Processing/Lanczos/Lanczos.metal"),
-                .copy("Processing/Exposure/Exposure.metal"),
-                .copy("Processing/Blur/Blur.metal"),
-                .copy("Processing/Saturation/Saturation.metal"),
-                .copy("Processing/Illumination/Illuminance.metal"),
-                .copy("Processing/Blending/Blending.metal"),
-                .copy("Processing/KernelNxN.metalh"),
-                .copy("UI/MetalImage/MetalImage.metal")
-            ]
-        ),
         .testTarget(
             name: "SnapCoreTests",
             dependencies: ["SnapCore"]
-        ),
-        .testTarget(
-            name: "SnapCoreEngineTests",
-            dependencies: ["SnapCoreEngine", "SnapCore"]
         )
     ],
     swiftLanguageVersions: [.v5]
