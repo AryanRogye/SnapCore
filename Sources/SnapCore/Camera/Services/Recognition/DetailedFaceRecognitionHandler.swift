@@ -47,20 +47,38 @@ final class DetailedFaceRecognitionHandler: NSObject, AVCaptureVideoDataOutputSa
     }
 
     private func detectDetailedFaces(image: CVPixelBuffer) {
-        let request = VNDetectFaceLandmarksRequest { [weak self] request, _ in
-            guard let self,
-                  let observations = request.results as? [VNFaceObservation]
-            else { return }
+        do {
+            // Vision populates face orientation values, including pitch, on
+            // face-rectangle observations. Feed those observations into the
+            // landmark request so the detailed result retains them.
+            let faceRequest = VNDetectFaceRectanglesRequest()
+            try requestHandler.perform(
+                [faceRequest],
+                on: image,
+                orientation: orientation
+            )
+
+            guard let faceObservations = faceRequest.results else {
+                return
+            }
+
+            let landmarkRequest = VNDetectFaceLandmarksRequest()
+            landmarkRequest.inputFaceObservations = faceObservations
+            try requestHandler.perform(
+                [landmarkRequest],
+                on: image,
+                orientation: orientation
+            )
+
+            guard let observations = landmarkRequest.results else {
+                return
+            }
 
             let faces = observations.compactMap(makeDetailedFace)
-            let isCloseBy = self.isCloseBy(old: self.lastResult, new: faces)
-            self.throttle.setStable(isCloseBy)
-            self.onDetailedFaceResult?(faces, image, self.throttle.currentInterval)
-            self.lastResult = faces
-        }
-
-        do {
-            try requestHandler.perform([request], on: image, orientation: orientation)
+            let isCloseBy = isCloseBy(old: lastResult, new: faces)
+            throttle.setStable(isCloseBy)
+            onDetailedFaceResult?(faces, image, throttle.currentInterval)
+            lastResult = faces
         } catch {
             print("Vision error:", error)
         }
@@ -95,7 +113,10 @@ final class DetailedFaceRecognitionHandler: NSObject, AVCaptureVideoDataOutputSa
         return DetailedFace(
             boundingBox: observation.boundingBox,
             landmarks: pointsByRegion,
-            confidence: landmarks.confidence
+            confidence: landmarks.confidence,
+            roll: observation.roll?.doubleValue,
+            yaw: observation.yaw?.doubleValue,
+            pitch: observation.pitch?.doubleValue
         )
     }
 }

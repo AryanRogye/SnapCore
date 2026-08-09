@@ -16,14 +16,33 @@ extension ScreenRecordService {
         let nativeDimensions = nativePixelDimensions(for: display, filter: filter)
         
         switch scale {
-        case .normal, .medium, .high, .ultra:
+        case .low, .normal, .medium, .high, .ultra:
             let aspectRatio = CGFloat(nativeDimensions.width) / CGFloat(nativeDimensions.height)
-            let height = scale.value
-            let width = Int((CGFloat(height) * aspectRatio).rounded(.toNearestOrAwayFromZero))
-            return (width, height)
+            let requestedHeight = scale.value
+            let requestedWidth = Int(
+                (CGFloat(requestedHeight) * aspectRatio)
+                    .rounded(.toNearestOrAwayFromZero)
+            )
+            // ScreenCaptureKit is configured for bi-planar 4:2:0 and the live
+            // stream is encoded as H.264. Both paths require chroma planes with
+            // even dimensions. Mac display aspect ratios commonly turn 1080p
+            // into an odd width (for example, 1663x1080), which yields audio but
+            // no usable video samples.
+            return (
+                width: Self.evenDimension(requestedWidth),
+                height: Self.evenDimension(requestedHeight)
+            )
         case .native:
-            return (nativeDimensions.width, nativeDimensions.height)
+            return (
+                width: Self.evenDimension(nativeDimensions.width),
+                height: Self.evenDimension(nativeDimensions.height)
+            )
         }
+    }
+
+    private static func evenDimension(_ value: Int) -> Int {
+        let positive = max(value, 2)
+        return positive.isMultiple(of: 2) ? positive : positive + 1
     }
 
     private func nativePixelDimensions(

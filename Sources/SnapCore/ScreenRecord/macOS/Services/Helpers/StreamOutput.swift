@@ -10,6 +10,17 @@ import ScreenCaptureKit
 
 public struct SendableSampleBuffer: @unchecked Sendable {
     public let buffer: CMSampleBuffer
+    /// Retained synchronously while ScreenCaptureKit still owns a valid sample.
+    /// Video consumers should prefer this over asking an asynchronously
+    /// delivered CMSampleBuffer for its image buffer later.
+    public let imageBuffer: CVPixelBuffer?
+    public let presentationTimeStamp: CMTime
+
+    init(buffer: CMSampleBuffer) {
+        self.buffer = buffer
+        self.imageBuffer = CMSampleBufferGetImageBuffer(buffer)
+        self.presentationTimeStamp = CMSampleBufferGetPresentationTimeStamp(buffer)
+    }
     
     /**
      * Returns true if complete, idle or started

@@ -10,11 +10,17 @@ final class DetailedFaceRecognitionTests: XCTestCase {
         let face = DetailedFace(
             boundingBox: CGRect(x: 0.1, y: 0.2, width: 0.4, height: 0.5),
             landmarks: [.leftEye: points],
-            confidence: 0.9
+            confidence: 0.9,
+            roll: 0.1,
+            yaw: -0.2,
+            pitch: 0.3
         )
 
         XCTAssertEqual(face[.leftEye], points)
         XCTAssertEqual(face.confidence, 0.9)
+        XCTAssertEqual(face.roll, 0.1)
+        XCTAssertEqual(face.yaw, -0.2)
+        XCTAssertEqual(face.pitch, 0.3)
     }
 
     func testIdenticalDetailedFacesAreClose() {

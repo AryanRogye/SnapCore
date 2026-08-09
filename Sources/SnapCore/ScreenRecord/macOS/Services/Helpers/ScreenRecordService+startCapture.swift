@@ -17,12 +17,17 @@ extension ScreenRecordService {
         config.pixelFormat = kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
         config.showsCursor = showsCursor
         config.capturesAudio = capturesAudio
+        config.sampleRate = 48_000
+        config.channelCount = 2
+        config.excludesCurrentProcessAudio = true
         config.minimumFrameInterval = CMTime(value: 1, timescale: CMTimeScale(fps.value))
         
         config.captureResolution = .best
         config.presenterOverlayPrivacyAlertSetting = .always
         config.colorSpaceName = CGColorSpace.displayP3
-        config.queueDepth = 8
+        // Keep only a few fresh frames. A deep capture queue turns momentary
+        // encoder or Wi-Fi backpressure into visible glass-to-glass delay.
+        config.queueDepth = 3
         
         (config.width, config.height) = self.calculateWidthAndHeightOfDisplay(
             display: display,

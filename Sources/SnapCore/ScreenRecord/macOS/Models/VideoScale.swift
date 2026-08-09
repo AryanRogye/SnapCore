@@ -8,6 +8,7 @@
 import Foundation
 
 public enum VideoScale: CaseIterable, Codable {
+    case low
     case normal
     case medium
     case high
@@ -15,11 +16,13 @@ public enum VideoScale: CaseIterable, Codable {
     case native
     
     public static var allCases: [VideoScale] {
-        return [.normal, .medium, .high, .ultra, .native]
+        return [.low, .normal, .medium, .high, .ultra, .native]
     }
     
     public var stringValue: String {
         switch self {
+        case .low:
+            return "720p"
         case .normal:
             return "1080"
         case .medium:
@@ -35,6 +38,8 @@ public enum VideoScale: CaseIterable, Codable {
     
     public var value: Int {
         switch self {
+        case .low:
+            return 720
         case .normal:
             return 1080
         case .medium:

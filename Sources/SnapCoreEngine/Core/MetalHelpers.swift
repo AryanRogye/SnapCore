@@ -14,6 +14,41 @@ public enum MetalHelperError: Error {
     case invalidTextureCache
     case unsupportedPixelBufferFormat(String)
     case invalidDimensions(String)
+    case textureCreationFailed
+}
+
+public struct YCbCrTextures {
+    public let yTexture: MTLTexture
+    public let cbCrTexture: MTLTexture
+    public let isFullRange: Bool
+    private let yCVTexture: CVMetalTexture?
+    private let cbCrCVTexture: CVMetalTexture?
+
+    public init(
+        yTexture: MTLTexture,
+        cbCrTexture: MTLTexture,
+        isFullRange: Bool = true
+    ) {
+        self.yTexture = yTexture
+        self.cbCrTexture = cbCrTexture
+        self.isFullRange = isFullRange
+        self.yCVTexture = nil
+        self.cbCrCVTexture = nil
+    }
+
+    fileprivate init(
+        yTexture: MTLTexture,
+        cbCrTexture: MTLTexture,
+        isFullRange: Bool,
+        yCVTexture: CVMetalTexture,
+        cbCrCVTexture: CVMetalTexture
+    ) {
+        self.yTexture = yTexture
+        self.cbCrTexture = cbCrTexture
+        self.isFullRange = isFullRange
+        self.yCVTexture = yCVTexture
+        self.cbCrCVTexture = cbCrCVTexture
+    }
 }
 
 public struct MetalHelpers {
@@ -25,6 +60,82 @@ public struct MetalHelpers {
     }()
 
     private static let supportedPixelBufferFormat: OSType = kCVPixelFormatType_32BGRA
+    
+    public static func makeYCbCrTextures(
+        from pixelBuffer: CVPixelBuffer
+    ) throws -> YCbCrTextures {
+        guard let cache = textureCache else {
+            throw MetalHelperError.invalidTextureCache
+        }
+        
+        let pixelFormat = CVPixelBufferGetPixelFormatType(pixelBuffer)
+        
+        guard pixelFormat == kCVPixelFormatType_420YpCbCr8BiPlanarFullRange ||
+                pixelFormat == kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
+        else {
+            throw MetalHelperError.unsupportedPixelBufferFormat(
+                "Expected bi-planar YCbCr, received: \(pixelFormat)"
+            )
+        }
+        
+        guard CVPixelBufferGetPlaneCount(pixelBuffer) == 2 else {
+            throw MetalHelperError.unsupportedPixelBufferFormat(
+                "Expected two pixel-buffer planes"
+            )
+        }
+        
+        let yWidth = CVPixelBufferGetWidthOfPlane(pixelBuffer, 0)
+        let yHeight = CVPixelBufferGetHeightOfPlane(pixelBuffer, 0)
+        
+        let cbCrWidth = CVPixelBufferGetWidthOfPlane(pixelBuffer, 1)
+        let cbCrHeight = CVPixelBufferGetHeightOfPlane(pixelBuffer, 1)
+        
+        var yCVTexture: CVMetalTexture?
+        var cbCrCVTexture: CVMetalTexture?
+        
+        let yStatus = CVMetalTextureCacheCreateTextureFromImage(
+            kCFAllocatorDefault,
+            cache,
+            pixelBuffer,
+            nil,
+            .r8Unorm,
+            yWidth,
+            yHeight,
+            0,
+            &yCVTexture
+        )
+        
+        let cbCrStatus = CVMetalTextureCacheCreateTextureFromImage(
+            kCFAllocatorDefault,
+            cache,
+            pixelBuffer,
+            nil,
+            .rg8Unorm,
+            cbCrWidth,
+            cbCrHeight,
+            1,
+            &cbCrCVTexture
+        )
+        
+        guard
+            yStatus == kCVReturnSuccess,
+            cbCrStatus == kCVReturnSuccess,
+            let yCVTexture,
+            let cbCrCVTexture,
+            let yTexture = CVMetalTextureGetTexture(yCVTexture),
+            let cbCrTexture = CVMetalTextureGetTexture(cbCrCVTexture)
+        else {
+            throw MetalHelperError.textureCreationFailed
+        }
+        
+        return YCbCrTextures(
+            yTexture: yTexture,
+            cbCrTexture: cbCrTexture,
+            isFullRange: pixelFormat == kCVPixelFormatType_420YpCbCr8BiPlanarFullRange,
+            yCVTexture: yCVTexture,
+            cbCrCVTexture: cbCrCVTexture
+        )
+    }
     
     public static func makeTexture(
         from pixelBuffer: CVPixelBuffer,

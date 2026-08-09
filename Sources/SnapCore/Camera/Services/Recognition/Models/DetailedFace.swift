@@ -29,15 +29,24 @@ public struct DetailedFace: Sendable, Hashable {
     public let boundingBox: CGRect
     public let landmarks: [DetailedFaceRegion: [CGPoint]]
     public let confidence: Float
+    public let roll: Double?
+    public let yaw: Double?
+    public let pitch: Double?
 
     public init(
         boundingBox: CGRect,
         landmarks: [DetailedFaceRegion: [CGPoint]],
-        confidence: Float
+        confidence: Float,
+        roll: Double? = nil,
+        yaw: Double? = nil,
+        pitch: Double? = nil
     ) {
         self.boundingBox = boundingBox
         self.landmarks = landmarks
         self.confidence = confidence
+        self.roll = roll
+        self.yaw = yaw
+        self.pitch = pitch
     }
 
     public subscript(_ region: DetailedFaceRegion) -> [CGPoint]? {

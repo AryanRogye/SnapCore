@@ -8,6 +8,7 @@ import UIKit
 public struct MetalImageView: UIViewRepresentable {
     @Binding private var viewport: MetalImageViewport
     private let texture: MTLTexture?
+    private let yCbCrTextures: YCbCrTextures?
 
     private let context = MetalContext.shared
 
@@ -22,6 +23,21 @@ public struct MetalImageView: UIViewRepresentable {
     ) {
         self._viewport = viewport
         self.texture = texture
+        self.yCbCrTextures = nil
+    }
+
+    /// Creates a Metal-backed image view that renders bi-planar YCbCr textures.
+    ///
+    /// - Parameters:
+    ///   - viewport: The pan and zoom applied to the rendered texture.
+    ///   - texture: The luma and chroma textures to render.
+    public init(
+        viewport: Binding<MetalImageViewport>,
+        texture: YCbCrTextures
+    ) {
+        self._viewport = viewport
+        self.texture = nil
+        self.yCbCrTextures = texture
     }
 
     public func makeCoordinator() -> Coordinator {
@@ -41,21 +57,25 @@ public struct MetalImageView: UIViewRepresentable {
 
         context.coordinator.viewport = viewport
         context.coordinator.texture = texture
+        context.coordinator.yCbCrTextures = yCbCrTextures
         return view
     }
 
     public func updateUIView(_ view: MTKView, context: Context) {
         context.coordinator.viewport = viewport
         context.coordinator.texture = texture
+        context.coordinator.yCbCrTextures = yCbCrTextures
         view.draw()
     }
 
     public final class Coordinator: NSObject, MTKViewDelegate {
         fileprivate var viewport = MetalImageViewport()
         fileprivate var texture: MTLTexture?
+        fileprivate var yCbCrTextures: YCbCrTextures?
 
         private let commandQueue: MTLCommandQueue
         private let pipelineState: MTLRenderPipelineState
+        private let yCbCrPipelineState: MTLRenderPipelineState
         private let vertexBuffer: MTLBuffer
         private let viewportBuffer: MTLBuffer
 
@@ -77,6 +97,16 @@ public struct MetalImageView: UIViewRepresentable {
                 fatalError("Failed to create the Metal image render pipeline.")
             }
             self.pipelineState = pipelineState
+
+            descriptor.fragmentFunction = context.library.makeFunction(
+                name: "snapCoreMetalImageYCbCrFragmentShader"
+            )
+            guard let yCbCrPipelineState = try? context.device.makeRenderPipelineState(
+                descriptor: descriptor
+            ) else {
+                fatalError("Failed to create the YCbCr Metal image render pipeline.")
+            }
+            self.yCbCrPipelineState = yCbCrPipelineState
 
             let vertices: [Vertex] = [
                 .init(position: [-1, -1]),
@@ -105,7 +135,7 @@ public struct MetalImageView: UIViewRepresentable {
         public func draw(in view: MTKView) {
             guard let renderPassDescriptor = view.currentRenderPassDescriptor,
                   let drawable = view.currentDrawable,
-                  let texture,
+                  texture != nil || yCbCrTextures != nil,
                   view.drawableSize.height > 0,
                   let commandBuffer = commandQueue.makeCommandBuffer(),
                   let encoder = commandBuffer.makeRenderCommandEncoder(
@@ -122,10 +152,23 @@ public struct MetalImageView: UIViewRepresentable {
                     viewAspect: Float(view.drawableSize.width / view.drawableSize.height)
                 )
 
-            encoder.setRenderPipelineState(pipelineState)
+            encoder.setRenderPipelineState(
+                yCbCrTextures == nil ? pipelineState : yCbCrPipelineState
+            )
             encoder.setVertexBuffer(vertexBuffer, offset: 0, index: 0)
             encoder.setVertexBuffer(viewportBuffer, offset: 0, index: 1)
-            encoder.setFragmentTexture(texture, index: 0)
+            if let yCbCrTextures {
+                encoder.setFragmentTexture(yCbCrTextures.yTexture, index: 0)
+                encoder.setFragmentTexture(yCbCrTextures.cbCrTexture, index: 1)
+                var isFullRange: UInt32 = yCbCrTextures.isFullRange ? 1 : 0
+                encoder.setFragmentBytes(
+                    &isFullRange,
+                    length: MemoryLayout<UInt32>.stride,
+                    index: 0
+                )
+            } else {
+                encoder.setFragmentTexture(texture, index: 0)
+            }
             encoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: 6)
             encoder.endEncoding()
 
@@ -159,6 +202,7 @@ import AppKit
 public struct MetalImageView: NSViewRepresentable {
     @Binding private var viewport: MetalImageViewport
     private let texture: MTLTexture?
+    private let yCbCrTextures: YCbCrTextures?
     
     private let context = MetalContext.shared
     
@@ -173,6 +217,21 @@ public struct MetalImageView: NSViewRepresentable {
     ) {
         self._viewport = viewport
         self.texture = texture
+        self.yCbCrTextures = nil
+    }
+
+    /// Creates a Metal-backed image view that renders bi-planar YCbCr textures.
+    ///
+    /// - Parameters:
+    ///   - viewport: The pan and zoom applied to the rendered texture.
+    ///   - texture: The luma and chroma textures to render.
+    public init(
+        viewport: Binding<MetalImageViewport>,
+        texture: YCbCrTextures
+    ) {
+        self._viewport = viewport
+        self.texture = nil
+        self.yCbCrTextures = texture
     }
     
     public func makeCoordinator() -> Coordinator {
@@ -194,21 +253,25 @@ public struct MetalImageView: NSViewRepresentable {
         
         context.coordinator.viewport = viewport
         context.coordinator.texture = texture
+        context.coordinator.yCbCrTextures = yCbCrTextures
         return view
     }
     
     public func updateNSView(_ view: MTKView, context: Context) {
         context.coordinator.viewport = viewport
         context.coordinator.texture = texture
+        context.coordinator.yCbCrTextures = yCbCrTextures
         view.draw()
     }
     
     public final class Coordinator: NSObject, MTKViewDelegate {
         fileprivate var viewport = MetalImageViewport()
         fileprivate var texture: MTLTexture?
+        fileprivate var yCbCrTextures: YCbCrTextures?
         
         private let commandQueue: MTLCommandQueue
         private let pipelineState: MTLRenderPipelineState
+        private let yCbCrPipelineState: MTLRenderPipelineState
         private let vertexBuffer: MTLBuffer
         private let viewportBuffer: MTLBuffer
         
@@ -230,6 +293,16 @@ public struct MetalImageView: NSViewRepresentable {
                 fatalError("Failed to create the Metal image render pipeline.")
             }
             self.pipelineState = pipelineState
+
+            descriptor.fragmentFunction = context.library.makeFunction(
+                name: "snapCoreMetalImageYCbCrFragmentShader"
+            )
+            guard let yCbCrPipelineState = try? context.device.makeRenderPipelineState(
+                descriptor: descriptor
+            ) else {
+                fatalError("Failed to create the YCbCr Metal image render pipeline.")
+            }
+            self.yCbCrPipelineState = yCbCrPipelineState
             
             let vertices: [Vertex] = [
                 .init(position: [-1, -1]),
@@ -258,7 +331,7 @@ public struct MetalImageView: NSViewRepresentable {
         public func draw(in view: MTKView) {
             guard let renderPassDescriptor = view.currentRenderPassDescriptor,
                   let drawable = view.currentDrawable,
-                  let texture,
+                  texture != nil || yCbCrTextures != nil,
                   view.drawableSize.height > 0,
                   let commandBuffer = commandQueue.makeCommandBuffer(),
                   let encoder = commandBuffer.makeRenderCommandEncoder(
@@ -275,10 +348,23 @@ public struct MetalImageView: NSViewRepresentable {
                     viewAspect: Float(view.drawableSize.width / view.drawableSize.height)
                 )
             
-            encoder.setRenderPipelineState(pipelineState)
+            encoder.setRenderPipelineState(
+                yCbCrTextures == nil ? pipelineState : yCbCrPipelineState
+            )
             encoder.setVertexBuffer(vertexBuffer, offset: 0, index: 0)
             encoder.setVertexBuffer(viewportBuffer, offset: 0, index: 1)
-            encoder.setFragmentTexture(texture, index: 0)
+            if let yCbCrTextures {
+                encoder.setFragmentTexture(yCbCrTextures.yTexture, index: 0)
+                encoder.setFragmentTexture(yCbCrTextures.cbCrTexture, index: 1)
+                var isFullRange: UInt32 = yCbCrTextures.isFullRange ? 1 : 0
+                encoder.setFragmentBytes(
+                    &isFullRange,
+                    length: MemoryLayout<UInt32>.stride,
+                    index: 0
+                )
+            } else {
+                encoder.setFragmentTexture(texture, index: 0)
+            }
             encoder.drawPrimitives(type: .triangle, vertexStart: 0, vertexCount: 6)
             encoder.endEncoding()
             
