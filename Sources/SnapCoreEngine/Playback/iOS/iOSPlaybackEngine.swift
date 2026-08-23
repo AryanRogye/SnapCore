@@ -10,6 +10,8 @@ import Foundation
 import CoreImage
 import CoreMedia
 
+let DEBUG_LOGS = true
+
 @Observable
 public final class PlaybackEngine {
     
@@ -19,6 +21,10 @@ public final class PlaybackEngine {
     
     private var isInPlayableArea: Bool {
         return progress >= start && progress <= end
+    }
+
+    public var isPlaying: Bool {
+        playerCoordinator.isPlaying
     }
     
     public var currentTime: Float64 {

@@ -58,7 +58,7 @@ public final class PlaybackImageCoordinator {
     let imageColorProcessor = ImageColorProcessor()
     
     var cursorTexture: MTLTexture?
-    
+
     init(recordingInfo: RecordingInfo) {
         self.recordingInfo = recordingInfo
         let settings: [String: Any] = [

@@ -10,6 +10,8 @@ import AppKit
 import CoreMedia
 import SwiftUI
 
+let DEBUG_LOGS = true
+
 @Observable
 public final class PlaybackEngine {
     let recordingInfo: RecordingInfo
@@ -17,7 +19,11 @@ public final class PlaybackEngine {
     private var isInPlayableArea: Bool {
         return progress >= start && progress <= end
     }
-    
+
+    public var isPlaying: Bool {
+        playerCoordinator.isPlaying
+    }
+
     public var currentTime: Float64 {
         imageCoordinator.currentTime
     }
@@ -93,23 +99,41 @@ public final class PlaybackEngine {
             self.imageCoordinator.clearCurrentFrame()
         }
     }
-    
+
+    deinit {
+        imageCoordinator.stopRendering()
+    }
+
     public func play() {
         playerCoordinator.play()
     }
     public func pause() {
         playerCoordinator.pause()
     }
-    public func seek(to time: CMTime) {
-        playerCoordinator.seek(to: time)
-    }
     public func stop() {
         playerCoordinator.pause()
         playerCoordinator.seek(to: .zero)
     }
     
-    deinit {
-        imageCoordinator.stopRendering()
+}
+
+// MARK: - Seeking
+extension PlaybackEngine {
+    public enum SeekDirection {
+        case forward
+        case backward
+    }
+    public func seek(seconds: Double, direction: SeekDirection) {
+        self.seek(
+            to: CMTime(
+                seconds: direction == .forward ? currentTime + seconds : currentTime - seconds,
+                preferredTimescale: 600
+            )
+        )
+    }
+
+    public func seek(to time: CMTime) {
+        playerCoordinator.seek(to: time)
     }
 }
 #endif

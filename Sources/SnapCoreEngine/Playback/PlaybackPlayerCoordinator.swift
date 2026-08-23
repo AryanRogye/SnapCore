@@ -156,6 +156,8 @@ public final class PlaybackPlayerCoordinator {
 
     public var player : AVPlayer
     let videoOutput: AVPlayerItemVideoOutput
+    public private(set) var isPlaying = false
+    @ObservationIgnored private var playbackStatusObservation: NSKeyValueObservation?
     
     var totalDuration: Float64 = 0
     public var lastCompostion: AVMutableComposition?
@@ -175,8 +177,22 @@ public final class PlaybackPlayerCoordinator {
         playerItem.add(videoOutput)
         
         player = AVPlayer(playerItem: playerItem)
+        observePlaybackStatus()
         Task {
             await loadDuration(from: asset)
+        }
+    }
+
+    private func observePlaybackStatus() {
+        playbackStatusObservation = player.observe(
+            \.timeControlStatus,
+            options: [.initial, .new]
+        ) { [weak self] player, _ in
+            let isPlaying = player.timeControlStatus == .playing
+
+            Task { @MainActor [weak self] in
+                self?.isPlaying = isPlaying
+            }
         }
     }
     

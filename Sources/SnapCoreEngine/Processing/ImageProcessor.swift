@@ -196,8 +196,16 @@ extension ImageProcessor {
     ) -> MTLTexture? {
         
         /// if we recorded with the cursor return nil
-        guard isEnabled else { return nil }
-        
+        guard isEnabled else {
+            if DEBUG_LOGS {
+                print("Returning nil as we are not using the cursor")
+            }
+            return nil
+        }
+        if DEBUG_LOGS {
+            print("Using Cursor")
+        }
+
         guard let cursorTexture,
               let point = currentMouse?.point,
               let frame
@@ -229,7 +237,13 @@ extension ImageProcessor {
         isEnabled: Bool
     ) -> MTLTexture? {
         guard isEnabled else {
+            if DEBUG_LOGS {
+                print("Returned nil as we're not using the Lanczos Upscaler")
+            }
             return nil
+        }
+        if DEBUG_LOGS {
+            print("Using the Lanczos Upscaler")
         }
         return lanczosUpscaler.upscale(
             image,
@@ -249,7 +263,13 @@ extension ImageProcessor {
         isEnabled: Bool
     ) -> MTLTexture? {
         guard isEnabled else {
+            if DEBUG_LOGS {
+                print("Returned nil as we're not using the Contrast Booster")
+            }
             return nil
+        }
+        if DEBUG_LOGS {
+            print("Using the Contrast Booster")
         }
         do {
             return try imageContrastBooster.boostContrast(for: image, factor: Float(contrast))
@@ -269,7 +289,13 @@ extension ImageProcessor {
         isEnabled: Bool
     ) -> MTLTexture? {
         guard isEnabled else {
+            if DEBUG_LOGS {
+                print("Returned nil as we're not using the Exposure Booster")
+            }
             return nil
+        }
+        if DEBUG_LOGS {
+            print("Using the Exposure Booster")
         }
         do {
             return try exposureAdjuster.adjustExposure(for: image, factor: Float(factor))
@@ -290,7 +316,13 @@ extension ImageProcessor {
         isEnabled: Bool
     ) -> MTLTexture? {
         guard isEnabled else {
+            if DEBUG_LOGS {
+                print("Returned nil as we're not using the Blur Booster")
+            }
             return nil
+        }
+        if DEBUG_LOGS {
+            print("Using the Blur Booster")
         }
         do {
             return try imageBlurrer.applyBlur(
@@ -316,7 +348,13 @@ extension ImageProcessor {
         isEnabled: Bool
     ) -> MTLTexture? {
         guard isEnabled else {
+            if DEBUG_LOGS {
+                print("Returned nil as we're not using the Sharpen Booster")
+            }
             return nil
+        }
+        if DEBUG_LOGS {
+            print("Using the Sharpen Booster")
         }
         do {
             return try imageSharpener.sharpen(
