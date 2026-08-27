@@ -11,8 +11,19 @@ import CoreMedia
 import ScreenCaptureKit
 import SnapCore
 
-public enum RecordingConfig {
+public struct RecordingFrameConfig: Equatable {
+    let screen: NSScreen
+    let frame: CGRect
+
+    public init(screen: NSScreen, frame: CGRect) {
+        self.screen = screen
+        self.frame = frame
+    }
+}
+
+public enum RecordingConfig: Equatable {
     case recording
+    case recordFrame(RecordingFrameConfig)
     case livestream(OutputStream)
 }
 
@@ -41,6 +52,8 @@ public final class RecordingCoordinator {
 
     let ciContext = CIContext(options: [.useSoftwareRenderer: false])
 
+    private var screenRecordFrameTask: Task<Void, Never>?
+
 
     public init() {
         let recorder = ScreenRecordService()
@@ -56,7 +69,7 @@ public final class RecordingCoordinator {
 
     public func startRecording(
         with config: RecordingConfig = .recording
-    ) async {
+    ) async throws {
         let temp = getTemp()
 
         await liveFileWriter.clearOutputStream()
@@ -64,6 +77,7 @@ public final class RecordingCoordinator {
         let fileWriter: FileWriter = await {
             switch config {
             case .recording:  return self.recordingFileWriter
+            case .recordFrame: return self.recordingFileWriter
             case .livestream(let stream):
                 await self.liveFileWriter.assignOutputStream(stream)
                 return self.liveFileWriter
@@ -80,61 +94,97 @@ public final class RecordingCoordinator {
 
         var didResumeStart = false
 
-        await withCheckedContinuation { continuation in
-            recorder.onScreenFrame = { sample in
-                do {
-                    guard let info = SampleValidator.isValidSample(sample) else { return }
+        do {
+            try await withCheckedThrowingContinuation { continuation in
+                recorder.onScreenFrame = { sample in
+                    do {
+                        guard let info = SampleValidator.isValidSample(sample) else { return }
 
-                    try await fileWriter.write(
-                        sample: sample,
-                        info: info,
-                        onFrameWritten: { [weak self] in
-                            Task { @MainActor [weak self] in
-                                guard let self else { return }
+                        try await fileWriter.write(
+                            sample: sample,
+                            info: info,
+                            onFrameWritten: { [weak self = self] in
+                                Task { @MainActor [weak self] in
+                                    guard let self else { return }
 
-                                let mouse = NSEvent.mouseLocation
-                                self.recordingInfo.append(
-                                    FrameInfo(
-                                        time: sample.buffer.presentationTimeStamp,
-                                        mouse: mouse,
-                                        leftMouseDown: self.mouseCoordinator.isLeftMouseDown,
-                                        rightMouseDown: self.mouseCoordinator.isRightMouseDown
+                                    let mouse = NSEvent.mouseLocation
+                                    self.recordingInfo.append(
+                                        FrameInfo(
+                                            time: sample.buffer.presentationTimeStamp,
+                                            mouse: mouse,
+                                            leftMouseDown: self.mouseCoordinator.isLeftMouseDown,
+                                            rightMouseDown: self.mouseCoordinator.isRightMouseDown
+                                        )
                                     )
-                                )
 
-                                self.frameCount += 1
-                                guard self.frameCount % self.processEvery == 0 else {
+                                    self.frameCount += 1
+                                    guard self.frameCount % self.processEvery == 0 else {
+                                        if !didResumeStart {
+                                            didResumeStart = true
+                                            continuation.resume()
+                                        }
+                                        return
+                                    }
+
+                                    if let img = self.convert(sample: sample.buffer) {
+                                        self.recordingInfo.setLastImage(img)
+                                    }
+
                                     if !didResumeStart {
                                         didResumeStart = true
                                         continuation.resume()
                                     }
-                                    return
-                                }
-
-                                if let img = self.convert(sample: sample.buffer) {
-                                    self.recordingInfo.setLastImage(img)
-                                }
-
-                                if !didResumeStart {
-                                    didResumeStart = true
-                                    continuation.resume()
                                 }
                             }
-                        }
-                    )
-                } catch {
-                    print(error)
+                        )
+                    } catch {
+                        print(error)
+                    }
                 }
+
+                switch config {
+                case .recording:
+                    recorder.startRecording(
+                        scale: scale,
+                        showsCursor: !recordingInfo.isUsingCustomCursor,
+                        capturesAudio: false,
+                        fps: fps
+                    )
+                case .recordFrame(let recordingFrameConfig):
+                    screenRecordFrameTask?.cancel()
+                    screenRecordFrameTask = Task {
+                        do {
+                            try await recorder.recordFrame(
+                                frame: recordingFrameConfig.frame,
+                                screen: recordingFrameConfig.screen,
+                                scale: scale,
+                                showsCursor: !recordingInfo.isUsingCustomCursor,
+                                capturesAudio: false,
+                                fps: fps
+                            )
+                        } catch {
+                            guard !didResumeStart else { return }
+                            didResumeStart = true
+                            continuation.resume(throwing: error)
+                        }
+                    }
+                case .livestream:
+                    recorder.startRecording(
+                        scale: scale,
+                        showsCursor: !recordingInfo.isUsingCustomCursor,
+                        capturesAudio: false,
+                        fps: fps
+                    )
+                }
+
+                self.lastBackingScaleFactorUsed = self.recorder.getLastScaleFactorUsed()
             }
-
-            recorder.startRecording(
-                scale: scale,
-                showsCursor: !recordingInfo.isUsingCustomCursor,
-                capturesAudio: false,
-                fps: fps
-            )
-
-            self.lastBackingScaleFactorUsed = self.recorder.getLastScaleFactorUsed()
+        } catch {
+            await recorder.stopRecording()
+            mouseCoordinator.stopMonitoring()
+            try? await lastFileWriter?.stop()
+            endRecordingActivity()
+            throw error
         }
     }
 

@@ -23,7 +23,9 @@ public final class Recorder {
     
     public var elapsed: TimeInterval = 0
     var timer: Timer? = nil
-    
+
+    public var onRecordingFinish: (() -> Void)?
+
     public var coordinator = RecordingCoordinator()
     
     public init() {
@@ -34,7 +36,7 @@ public final class Recorder {
         withObservationTracking {
             _ = isRecording
         } onChange: {
-            DispatchQueue.main.async { [weak self] in
+            DispatchQueue.main.async { [weak self = self] in
                 guard let self else { return }
                 if isRecording {
                     elapsed = 0
@@ -71,8 +73,9 @@ public final class Recorder {
             try await coordinator.stopRecording()
             isRecording = false
             isStopping = false
+            onRecordingFinish?()
         } else {
-            await coordinator.startRecording(
+            try await coordinator.startRecording(
                 with: config
             )
             isRecording = true

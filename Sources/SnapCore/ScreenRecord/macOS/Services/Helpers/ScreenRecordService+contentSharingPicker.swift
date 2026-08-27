@@ -28,6 +28,6 @@ extension ScreenRecordService: SCContentSharingPickerObserver {
 
 }
 
-extension SCContentFilter: @unchecked Sendable {}
+extension SCContentFilter: @unchecked @retroactive Sendable {}
 
 #endif
