@@ -22,6 +22,15 @@ public protocol ScreenRecordProviding {
         capturesAudio: Bool,
         fps: FPS
     )
+    func recordFrame(
+        frame: CGRect,
+        screen: NSScreen,
+        scale: VideoScale,
+        showsCursor: Bool,
+        capturesAudio: Bool,
+        fps: FPS
+    ) async throws
+
     func stopRecording() async
     func getCachedFilter() -> SCContentFilter?
     func getLastScaleFactorUsed() -> CGFloat

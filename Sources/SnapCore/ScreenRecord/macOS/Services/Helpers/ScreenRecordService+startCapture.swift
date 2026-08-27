@@ -9,11 +9,31 @@
 import AVFoundation
 import ScreenCaptureKit
 
+struct StartCaptureInfo {
+    let sourceRect: CGRect
+    let backingScaleFactor: CGFloat
+}
+
 extension ScreenRecordService {
-    internal func startCapture(with filter: SCContentFilter) async throws {
+
+    internal func startCapture(with filter: SCContentFilter, startCaptureInfo: StartCaptureInfo? = nil) async throws {
         guard let display = filter.includedDisplays.first else { return }
-        
+
         let config = SCStreamConfiguration()
+        if let startCaptureInfo {
+
+            let sourceRect = startCaptureInfo.sourceRect
+            let displayScale = startCaptureInfo.backingScaleFactor
+
+            config.sourceRect = sourceRect
+            config.width = Int(sourceRect.width * displayScale)
+            config.height = Int(sourceRect.height * displayScale)
+        } else {
+            (config.width, config.height) = self.calculateWidthAndHeightOfDisplay(
+                display: display,
+                filter: filter
+            )
+        }
         config.pixelFormat = kCVPixelFormatType_420YpCbCr8BiPlanarVideoRange
         config.showsCursor = showsCursor
         config.capturesAudio = capturesAudio
@@ -21,27 +41,22 @@ extension ScreenRecordService {
         config.channelCount = 2
         config.excludesCurrentProcessAudio = true
         config.minimumFrameInterval = CMTime(value: 1, timescale: CMTimeScale(fps.value))
-        
         config.captureResolution = .best
         config.presenterOverlayPrivacyAlertSetting = .always
         config.colorSpaceName = CGColorSpace.displayP3
         // Keep only a few fresh frames. A deep capture queue turns momentary
         // encoder or Wi-Fi backpressure into visible glass-to-glass delay.
         config.queueDepth = 3
-        
-        (config.width, config.height) = self.calculateWidthAndHeightOfDisplay(
-            display: display,
-            filter: filter
-        )
-        
+
+
         config.scalesToFit = false
         config.preservesAspectRatio = true
-        
+
         let stream = SCStream(filter: filter, configuration: config, delegate: nil)
-        
+
         let output = StreamOutput()
         attachOutput(output)
-        
+
         try stream.addStreamOutput(
             output,
             type: .screen,
@@ -54,11 +69,11 @@ extension ScreenRecordService {
                 sampleHandlerQueue: audioQueue
             )
         }
-        
+
         if let pendingRecordingOutputURL {
             let recordingConfig = SCRecordingOutputConfiguration()
             recordingConfig.outputURL = pendingRecordingOutputURL
-            
+
             switch pendingRecordingOutputURL.pathExtension.lowercased() {
             case "mov":
                 recordingConfig.outputFileType = .mov
@@ -67,7 +82,7 @@ extension ScreenRecordService {
             default:
                 break
             }
-            
+
             let recordingOutput = SCRecordingOutput(
                 configuration: recordingConfig,
                 delegate: self
@@ -75,22 +90,22 @@ extension ScreenRecordService {
             try stream.addRecordingOutput(recordingOutput)
             recordingOutputStorage = recordingOutput
         }
-        
+
         self.stream = stream
         self.streamOutput = output
-        
+
         try await stream.startCapture()
     }
-    
+
     internal func attachOutput(_ output: StreamOutput) {
         streamOutput = output
-        
+
         screenFrameTask = Task { [weak self] in
             for await frame in output.screenFrames {
                 await self?.onScreenFrame?(frame)
             }
         }
-        
+
         audioFrameTask = Task { [weak self] in
             for await frame in output.audioFrames {
                 await self?.onAudioFrame?(frame)
