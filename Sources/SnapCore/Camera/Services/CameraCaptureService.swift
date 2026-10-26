@@ -37,16 +37,13 @@ public actor CameraCaptureService: CameraCaptureProviding {
     public init() {
     }
 
-    func startRecording(to url: URL) {
+    public func startRecording(to url: URL) {
         guard session != nil else { return }
         guard !movieOutput.isRecording else { return }
-
-        Task { @MainActor in
-            movieOutput.startRecording(to: url, recordingDelegate: recordingDelegate)
-        }
+        movieOutput.startRecording(to: url, recordingDelegate: recordingDelegate)
     }
 
-    func stopRecording() {
+    public func stopRecording() {
         guard movieOutput.isRecording else { return }
         movieOutput.stopRecording()
     }

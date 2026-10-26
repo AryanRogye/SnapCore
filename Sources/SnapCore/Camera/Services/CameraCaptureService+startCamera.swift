@@ -36,6 +36,11 @@ extension CameraCaptureService {
             optimize: optimize
         )
 
+        guard session.canAddOutput(movieOutput) else {
+            throw CameraError.cantConfigure
+        }
+        session.addOutput(movieOutput)
+
         session.commitConfiguration()
         session.startRunning()
 
@@ -72,6 +77,11 @@ extension CameraCaptureService {
             in: session,
             optimize: optimize
         )
+
+        guard session.canAddOutput(movieOutput) else {
+            throw CameraError.cantConfigure
+        }
+        session.addOutput(movieOutput)
 
         session.commitConfiguration()
         session.startRunning()
@@ -111,6 +121,11 @@ extension CameraCaptureService {
             in: session,
             optimize: optimize
         )
+
+        guard session.canAddOutput(movieOutput) else {
+            throw CameraError.cantConfigure
+        }
+        session.addOutput(movieOutput)
 
         session.commitConfiguration()
         session.startRunning()
@@ -153,6 +168,11 @@ extension CameraCaptureService {
             trackingMovement: trackingMovement
         )
 
+        guard session.canAddOutput(movieOutput) else {
+            throw CameraError.cantConfigure
+        }
+        session.addOutput(movieOutput)
+
         session.commitConfiguration()
         session.startRunning()
 
@@ -191,6 +211,11 @@ extension CameraCaptureService {
             in: session,
             optimize: optimize
         )
+
+        guard session.canAddOutput(movieOutput) else {
+            throw CameraError.cantConfigure
+        }
+        session.addOutput(movieOutput)
 
         session.commitConfiguration()
         session.startRunning()
@@ -232,7 +257,12 @@ extension CameraCaptureService {
             optimize: optimize,
             configuration: recognitionConfiguration,
         )
-        
+
+        guard session.canAddOutput(movieOutput) else {
+            throw CameraError.cantConfigure
+        }
+        session.addOutput(movieOutput)
+
         session.commitConfiguration()
         session.startRunning()
         
@@ -271,6 +301,11 @@ extension CameraCaptureService {
             for: cameraPosition,
             in: session
         )
+
+        guard session.canAddOutput(movieOutput) else {
+            throw CameraError.cantConfigure
+        }
+        session.addOutput(movieOutput)
 
         session.commitConfiguration()
         session.startRunning()
